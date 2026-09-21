@@ -1,0 +1,97 @@
+# Define the services
+services:
+  postgres:
+    # Set the container name
+    container_name: postgres
+
+    # Use PostgreSQL version 16
+    image: postgres:16
+
+    # Restart the container unless it is stopped manually
+    restart: unless-stopped
+
+    # Set database settings
+    environment:
+      # Set the database user
+      POSTGRES_USER: ${DATABASE_USER}
+
+      # Set the database password
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+
+      # Set the database name
+      POSTGRES_DB: ${DATABASE_NAME}
+
+    # Map the host port to the container port
+    ports:
+      - "5433:5432"
+
+    # Save database data
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    # Check if PostgreSQL is ready
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      # Wait 10 seconds between checks
+      interval: 10s
+      # Wait up to 5 seconds for a check
+      timeout: 5s
+      # Try 5 times before marking as unhealthy
+      retries: 5
+
+    # Connect to the Docker network
+    networks:
+      - feature-flags-saas
+
+  redis:
+    # Set the container name
+    container_name: redis
+
+    # Use Redis version 7
+    image: redis:7
+
+    # Restart the container unless it is stopped manually
+    restart: unless-stopped
+
+    # Start Redis with a password
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+
+    # Set Redis client settings
+    environment:
+      # Set the password for Redis CLI
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+
+    # Map the host port to the container port
+    ports:
+      - "6379:6379"
+
+    # Save Redis data
+    volumes:
+      - redis_data:/data
+
+    # Check if Redis is ready
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      # Wait 10 seconds between checks
+      interval: 10s
+      # Wait up to 5 seconds for a check
+      timeout: 5s
+      # Try 5 times before marking as unhealthy
+      retries: 5
+
+    # Connect to the Docker network
+    networks:
+      - feature-flags-saas
+
+# Define named volumes
+volumes:
+  # Store PostgreSQL data
+  postgres_data:
+
+  # Store Redis data
+  redis_data:
+
+# Define Docker networks
+networks:
+  # Create a network for the services
+  feature-flags-saas:
