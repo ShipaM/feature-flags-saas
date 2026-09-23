@@ -1,10 +1,10 @@
-import { Button } from "@/components/ui/button";
+import { PingCheck, FlagList } from "./_components";
 
 export default function Home() {
   return (
-    <div className="text-primary">
-      Feature Flags Saas
-      <Button>Welcome</Button>
-    </div>
+    <main className="flex flex-col items-center justify-center p-8 gap-4">
+      <PingCheck />
+      <FlagList />
+    </main>
   );
 }
