@@ -15,7 +15,7 @@ export const userRoleEnum = pgEnum("user_role", [
   "owner",
   "admin",
   "developer",
-  "user",
+  "readonly",
 ]);
 
 // environment
@@ -39,6 +39,7 @@ export const users = pgTable("users", {
     .references(() => organizations.id)
     .notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   role: userRoleEnum("role").notNull().default("developer"),
 });
 
