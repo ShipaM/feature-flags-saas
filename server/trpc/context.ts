@@ -5,7 +5,7 @@ import { getSession } from "@/server/auth/session";
  * Takes `headers` so it can be reused from the route handler and from Server Components.
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
-  const session = await getSession(opts.headers);
+  const session = await getSession();
   return {
     db,
     session, // null when the user is not logged in

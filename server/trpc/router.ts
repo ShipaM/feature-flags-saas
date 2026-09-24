@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "./trpc";
-import { flagRouter } from "./routers/flag";
+import { flagRouter } from "./routes/flag";
 
 export const appRouter = createTRPCRouter({
   // Health check: proves the whole chain works (client -> route handler -> context -> DB)
@@ -13,7 +13,8 @@ export const appRouter = createTRPCRouter({
     }
     return { message: "pong" as const, at: new Date(), db };
   }),
-  // Returns 401 until auth is implemented. Useful to see protectedProcedure in action.
+
+  // Current user: { id, email, role, organizationId }. 401 if not logged in
   me: protectedProcedure.query(({ ctx }) => ctx.session.user),
   flag: flagRouter,
 });
