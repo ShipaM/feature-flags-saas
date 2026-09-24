@@ -17,5 +17,6 @@ const handler = (req: Request) =>
           }
         : undefined,
   });
+
 // GET for queries, POST for mutations
 export { handler as GET, handler as POST };
