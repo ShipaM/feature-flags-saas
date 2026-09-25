@@ -1,23 +1,15 @@
 import "dotenv/config";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "better-auth/crypto";
+import { sql } from "drizzle-orm";
 import { db } from "./client";
-import {
-  apiKeys,
-  auditLogs,
-  flags,
-  organizations,
-  projects,
-  users,
-} from "./schema";
+import { accounts, flags, organizations, projects, users } from "./schema";
 const PASSWORD = "password123"; // dev only!
 async function seed() {
-  // Clean tables (children first, because of foreign keys), so seed can be re-run
-  await db.delete(auditLogs);
-  await db.delete(apiKeys);
-  await db.delete(flags);
-  await db.delete(users);
-  await db.delete(projects);
-  await db.delete(organizations);
+  // Empty ALL tables and restart ids from 1, so seed can be re-run and ids are predictable
+  await db.execute(
+    sql`TRUNCATE organizations, users, sessions, accounts, verifications, projects, flags, api_keys, audit_logs
+RESTART IDENTITY CASCADE`,
+  );
   const [org] = await db
     .insert(organizations)
     .values({ name: "Acme Inc" })
@@ -26,19 +18,28 @@ async function seed() {
     .insert(projects)
     .values({ organizationId: org.id, name: "Main App" })
     .returning();
-  // One user per role, all with the same password
-  const passwordHash = await bcrypt.hash(PASSWORD, 10);
+  // One user per role
   const createdUsers = await db
     .insert(users)
     .values(
       (["owner", "admin", "developer", "readonly"] as const).map((role) => ({
         organizationId: org.id,
+        name: role,
         email: `${role}@acme.test`,
-        passwordHash,
         role,
       })),
     )
-    .returning({ email: users.email, role: users.role });
+    .returning({ id: users.id, email: users.email, role: users.role });
+  // Password lives in `accounts` (providerId "credential"), hashed the same way Better Auth does it
+  const password = await hashPassword(PASSWORD);
+  await db.insert(accounts).values(
+    createdUsers.map((user) => ({
+      userId: user.id,
+      accountId: String(user.id),
+      providerId: "credential",
+      password,
+    })),
+  );
   // The same flag in every environment, so the Read-only filter is visible
   const createdFlags = await db
     .insert(flags)
