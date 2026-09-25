@@ -1,7 +1,8 @@
 "use server";
-
-import { signIn } from "@/server/auth/config";
-import { AuthError } from "next-auth";
+import { APIError } from "better-auth/api";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { auth } from "@/server/auth/config";
 
 export type LoginState = { error?: string; email?: string };
 
@@ -11,25 +12,26 @@ export async function loginAction(
 ): Promise<LoginState> {
   const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
   const password = formData.get("password")?.toString() ?? ""; // пароль не обрезаем
-
   if (!email || !password) {
     return { error: "Enter email and password", email };
   }
-
   try {
-    await signIn("credentials", { email, password, redirectTo: "/" });
+    // Checks the password, creates a row in `sessions`, sets the cookie (via nextCookies plugin)
+    await auth.api.signInEmail({
+      body: { email, password },
+      headers: await headers(),
+    });
   } catch (error) {
-    if (error instanceof AuthError) {
+    if (error instanceof APIError) {
       return {
         error:
-          error.type === "CredentialsSignin"
+          error.status === "UNAUTHORIZED"
             ? "Invalid email or password"
             : "Something went wrong, please try again",
         email,
       };
     }
-    throw error; // NEXT_REDIRECT при успешном входе должен пройти дальше
+    throw error;
   }
-
-  return {}; // недостижимо: signIn с redirectTo всегда бросает редирект
+  redirect("/"); // outside try/catch: redirect() works by throwing
 }

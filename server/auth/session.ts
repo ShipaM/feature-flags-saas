@@ -9,22 +9,16 @@ export type SessionUser = Pick<
   typeof users.$inferSelect,
   "id" | "email" | "role" | "organizationId"
 >;
-
 export type Session = { user: SessionUser };
-
 /**
  * Returns the current user or null.
- * 1) auth() reads and verifies the Auth.js cookie (JWT) -> gives us the user id
- * 2) we load the FRESH role and organizationId from the DB,
- * so a role change works immediately, without re-login
+ * 1) Better Auth finds the session by the cookie (row in `sessions`) -> user id
+ * 2) we load OUR fields (role, organizationId) from `users`
  */
-export async function getSession(): Promise<Session | null> {
-  const authSession = await auth();
-  console.log("authSession:", authSession);
-
-  const userId = Number(authSession?.user?.id);
-  if (!Number.isInteger(userId)) return null; // no cookie or bad cookie
-
+export async function getSession(headers: Headers): Promise<Session | null> {
+  const authSession = await auth.api.getSession({ headers });
+  const userId = Number(authSession?.user.id);
+  if (!Number.isInteger(userId)) return null; // no cookie / expired / revoked session
   const [user] = await db
     .select({
       id: users.id,
@@ -35,6 +29,5 @@ export async function getSession(): Promise<Session | null> {
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-
-  return user ? { user } : null; // user deleted from DB -> treat as logged out
+  return user ? { user } : null;
 }
