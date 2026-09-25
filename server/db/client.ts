@@ -1,12 +1,13 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
+import { env } from "../env"; // relative: seed.ts runs outside Next.js
 
 // This will hold our one connection to the database.
 let connection: Sql;
 
 if (process.env.NODE_ENV === "production") {
   // In production, the file loads only one time. So we make a new connection here.
-  connection = postgres(process.env.DATABASE_URL!);
+  connection = postgres(env.DATABASE_URL);
 } else {
   // In development, Next.js reloads this file many times (hot reload).
   // We use "global" to keep the same connection every time. This stops us from making too many connections.
@@ -15,7 +16,7 @@ if (process.env.NODE_ENV === "production") {
   };
 
   if (!globalConnection.connection) {
-    globalConnection.connection = postgres(process.env.DATABASE_URL!);
+    globalConnection.connection = postgres(env.DATABASE_URL);
   }
 
   connection = globalConnection.connection;

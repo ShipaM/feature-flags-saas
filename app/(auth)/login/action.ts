@@ -1,21 +1,35 @@
 "use server";
 
-import { AuthError } from "next-auth";
-import { redirect } from "next/navigation";
 import { signIn } from "@/server/auth/config";
+import { AuthError } from "next-auth";
 
-// Server Action: runs on the server when the form is submitted
-export async function login(formData: FormData) {
-  console.log("formData:", formData);
-  try {
-    await signIn("credentials", {
-      email: formData.get("email"),
-      password: formData.get("password"),
-      redirectTo: "/",
-    });
-  } catch (error) {
-    // Wrong email/password -> back to the form with an error flag
-    if (error instanceof AuthError) redirect("/login?error=1");
-    throw error; // IMPORTANT: a successful signIn "throws" a redirect, let it through
+export type LoginState = { error?: string; email?: string };
+
+export async function loginAction(
+  _prev: LoginState | null,
+  formData: FormData,
+): Promise<LoginState> {
+  const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
+  const password = formData.get("password")?.toString() ?? ""; // пароль не обрезаем
+
+  if (!email || !password) {
+    return { error: "Enter email and password", email };
   }
+
+  try {
+    await signIn("credentials", { email, password, redirectTo: "/" });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return {
+        error:
+          error.type === "CredentialsSignin"
+            ? "Invalid email or password"
+            : "Something went wrong, please try again",
+        email,
+      };
+    }
+    throw error; // NEXT_REDIRECT при успешном входе должен пройти дальше
+  }
+
+  return {}; // недостижимо: signIn с redirectTo всегда бросает редирект
 }
