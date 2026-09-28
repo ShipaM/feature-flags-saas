@@ -30,6 +30,7 @@ function getUrl() {
   })();
   return `${base}/api/trpc`;
 }
+
 export function TRPCReactProvider({ children }: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
   const [trpcClient] = useState(() =>
