@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -32,25 +33,30 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// users (Better Auth "user" model + our own fields: organizationId, role)
-export const users = pgTable("users", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  // --- our fields (Better Auth does not know about them) ---
-  organizationId: integer("organization_id")
-    .references(() => organizations.id)
-    .notNull(),
-  role: userRoleEnum("role").notNull().default("developer"),
-  // --- fields required by Better Auth ---
-  name: varchar("name", { length: 255 }).notNull(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  emailVerified: boolean("email_verified").notNull().default(false),
-  image: text("image"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+// users
+export const users = pgTable(
+  "users",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    // --- our fields (Better Auth does not know about them) ---
+    organizationId: integer("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    role: userRoleEnum("role").notNull().default("developer"),
+    // --- fields required by Better Auth ---
+    name: varchar("name", { length: 255 }).notNull(),
+    email: varchar("email", { length: 255 }).notNull().unique(),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    image: text("image"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("users_organization_id_idx").on(table.organizationId)],
+);
+
 // sessions: one row = one logged-in browser. Delete the row -> user is logged out
 export const sessions = pgTable("sessions", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -67,6 +73,7 @@ export const sessions = pgTable("sessions", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
 // accounts: HOW the user logs in. Email+password -> providerId "credential", hash in `password`
 export const accounts = pgTable("accounts", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -89,6 +96,7 @@ export const accounts = pgTable("accounts", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
 // verifications: one-time tokens (email confirmation, password reset)
 export const verifications = pgTable("verifications", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -102,14 +110,18 @@ export const verifications = pgTable("verifications", {
     .notNull(),
 });
 
-//projects
-export const projects = pgTable("projects", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  organizationId: integer("organization_id")
-    .references(() => organizations.id)
-    .notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
-});
+// projects
+export const projects = pgTable(
+  "projects",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    organizationId: integer("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+  },
+  (table) => [index("projects_organization_id_idx").on(table.organizationId)],
+);
 
 // flags
 export const flags = pgTable(
@@ -136,31 +148,39 @@ export const flags = pgTable(
   ],
 );
 
-//api_keys
-export const apiKeys = pgTable("api_keys", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  projectId: integer("project_id")
-    .references(() => projects.id)
-    .notNull(),
-  environment: environmentEnum("environment").notNull(),
-  hashedKey: varchar("hashed_key", { length: 255 }).notNull().unique(),
-  type: varchar("type", { length: 255 }).notNull(), // "server" or "client"
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  revokedAt: timestamp("revoked_at"), //null if not revoked
-});
+// api_keys
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    projectId: integer("project_id")
+      .references(() => projects.id)
+      .notNull(),
+    environment: environmentEnum("environment").notNull(),
+    hashedKey: varchar("hashed_key", { length: 255 }).notNull().unique(),
+    type: varchar("type", { length: 255 }).notNull(), // "server" or "client"
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    revokedAt: timestamp("revoked_at"), //null if not revoked
+  },
+  (table) => [index("api_keys_project_id_idx").on(table.projectId)],
+);
 
-//audit_logs
-export const auditLogs = pgTable("audit_logs", {
-  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  organizationId: integer("organization_id")
-    .references(() => organizations.id)
-    .notNull(),
-  actorId: integer("actor_id")
-    .references(() => users.id)
-    .notNull(),
-  action: varchar("action", { length: 100 }).notNull(),
-  entity: varchar("entity", { length: 100 }).notNull(),
-  before: jsonb("before"),
-  after: jsonb("after"),
-  timestamp: timestamp("timestamp").defaultNow().notNull(),
-});
+// audit_logs
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    organizationId: integer("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    actorId: integer("actor_id")
+      .references(() => users.id)
+      .notNull(),
+    action: varchar("action", { length: 100 }).notNull(),
+    entity: varchar("entity", { length: 100 }).notNull(),
+    before: jsonb("before"),
+    after: jsonb("after"),
+    timestamp: timestamp("timestamp").defaultNow().notNull(),
+  },
+  (table) => [index("audit_logs_organization_id_idx").on(table.organizationId)],
+);

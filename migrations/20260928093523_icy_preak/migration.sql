@@ -1,0 +1,1 @@
+CREATE INDEX "projects_organization_id_idx" ON "projects" ("organization_id");
