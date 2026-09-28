@@ -2,6 +2,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { hasRole, type Role } from "@/server/auth/roles";
 import type { Context } from "./context";
+import { withTenantScope } from "./tenant";
 
 // initTRPC is called ONCE per app. Export only the helpers, not the whole `t`.
 const t = initTRPC.context<Context>().create({
@@ -27,14 +28,20 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   });
 });
 
-//Requires a session AND a role not lower than `minRole`. Usage: requireRole("admin").input(...).mutation(...)
+/** Session + ctx.tenant (tenant filters). Use it for EVERY procedure that touches org data */
+export const tenantProcedure = protectedProcedure.use(({ ctx, next }) =>
+  next({ ctx: { tenant: withTenantScope(ctx) } }),
+);
+
+// Requires a session AND a role not lower than `minRole`. Built on tenantProcedure,
+// so every role-guarded procedure also gets ctx.tenant automatically.
 export const requireRole = (minRole: Role) =>
-  protectedProcedure.use(({ ctx, next }) => {
+  tenantProcedure.use(({ ctx, next }) => {
     if (!hasRole(ctx.session.user.role, minRole)) {
       throw new TRPCError({
         code: "FORBIDDEN", // -> HTTP 403
         message: `Requires role "${minRole}" or higher`,
       });
     }
-    return next();
+    return next({ ctx });
   });
