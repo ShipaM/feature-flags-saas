@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { projects } from "@/server/db/schema";
+import { id } from "../schemas/common";
 import { createTRPCRouter, requireRole, tenantProcedure } from "../trpc";
 
 export const projectRouter = createTRPCRouter({
@@ -16,7 +17,7 @@ export const projectRouter = createTRPCRouter({
 
   // Get a single project from the current organization
   byId: tenantProcedure
-    .input(z.object({ id: z.number().int().positive() }))
+    .input(z.object({ id }))
     .query(async ({ ctx, input }) => {
       const [project] = await ctx.db
         .select()
