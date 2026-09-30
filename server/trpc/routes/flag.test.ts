@@ -208,7 +208,7 @@ describe("flag.list", () => {
 
 describe("flag.create", () => {
   it("creates a flag with defaults (enabled=false, rollout=0)", async () => {
-    const created = await as(developer).flag.create({
+    const created = await as(admin).flag.create({
       projectId,
       key: "new-flag",
       environment: "dev",
@@ -227,7 +227,7 @@ describe("flag.create", () => {
   });
 
   it("persists the provided enabled, rollout and description", async () => {
-    const created = await as(developer).flag.create({
+    const created = await as(admin).flag.create({
       projectId,
       key: "full",
       environment: "staging",
@@ -243,8 +243,8 @@ describe("flag.create", () => {
     });
   });
 
-  it("allows developer, admin and owner roles", async () => {
-    for (const [i, user] of [developer, admin, owner].entries()) {
+  it("allows admin and owner roles", async () => {
+    for (const [i, user] of [admin, owner].entries()) {
       const created = await as(user).flag.create({
         projectId,
         key: `by-role-${i}`,
@@ -254,9 +254,12 @@ describe("flag.create", () => {
     }
   });
 
-  it("readonly cannot create flags (FORBIDDEN)", async () => {
+  it.each([
+    ["developer", () => developer],
+    ["readonly", () => readonly],
+  ])("%s cannot create flags (FORBIDDEN)", async (_role, getUser) => {
     await expect(
-      as(readonly).flag.create({ projectId, key: "nope", environment: "dev" }),
+      as(getUser()).flag.create({ projectId, key: "nope", environment: "dev" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     expect(await db.select().from(flags)).toHaveLength(0);
@@ -270,7 +273,7 @@ describe("flag.create", () => {
 
   it("cannot create a flag in a foreign organization's project (NOT_FOUND)", async () => {
     await expect(
-      as(developer).flag.create({
+      as(admin).flag.create({
         projectId: outsiderProjectId,
         key: "evil",
         environment: "dev",
@@ -282,7 +285,7 @@ describe("flag.create", () => {
 
   it("returns NOT_FOUND for a non-existent project", async () => {
     await expect(
-      as(developer).flag.create({
+      as(admin).flag.create({
         projectId: 999_999,
         key: "ghost",
         environment: "dev",
@@ -291,21 +294,21 @@ describe("flag.create", () => {
   });
 
   it("a duplicate (project, key, environment) gives CONFLICT", async () => {
-    await as(developer).flag.create({
+    await as(admin).flag.create({
       projectId,
       key: "dup",
       environment: "dev",
     });
 
     await expect(
-      as(developer).flag.create({ projectId, key: "dup", environment: "dev" }),
+      as(admin).flag.create({ projectId, key: "dup", environment: "dev" }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
   it("the same key is allowed in another environment", async () => {
-    await as(developer).flag.create({ projectId, key: "same", environment: "dev" });
+    await as(admin).flag.create({ projectId, key: "same", environment: "dev" });
 
-    const created = await as(developer).flag.create({
+    const created = await as(admin).flag.create({
       projectId,
       key: "same",
       environment: "prod",
@@ -315,9 +318,9 @@ describe("flag.create", () => {
   });
 
   it("the same key is allowed in another project", async () => {
-    await as(developer).flag.create({ projectId, key: "same", environment: "dev" });
+    await as(admin).flag.create({ projectId, key: "same", environment: "dev" });
 
-    const created = await as(developer).flag.create({
+    const created = await as(admin).flag.create({
       projectId: otherProjectId,
       key: "same",
       environment: "dev",
@@ -329,7 +332,7 @@ describe("flag.create", () => {
   describe("input validation", () => {
     const base = { projectId: 0, key: "valid-key", environment: "dev" } as const;
     const call = (input: Record<string, unknown>) =>
-      as(developer).flag.create({
+      as(admin).flag.create({
         ...base,
         projectId,
         ...input,
@@ -368,7 +371,7 @@ describe("flag.update", () => {
   it("updates description, enabled and rollout in one call", async () => {
     const flag = await seedFlag();
 
-    const updated = await as(developer).flag.update({
+    const updated = await as(admin).flag.update({
       id: flag.id,
       description: "changed",
       enabled: true,
@@ -390,7 +393,7 @@ describe("flag.update", () => {
       rollout: 30,
     });
 
-    const updated = await as(developer).flag.update({ id: flag.id, rollout: 60 });
+    const updated = await as(admin).flag.update({ id: flag.id, rollout: 60 });
 
     expect(updated).toMatchObject({
       description: "keep me",
@@ -402,7 +405,7 @@ describe("flag.update", () => {
   it("description: null clears the description", async () => {
     const flag = await seedFlag({ description: "to clear" });
 
-    const updated = await as(developer).flag.update({
+    const updated = await as(admin).flag.update({
       id: flag.id,
       description: null,
     });
@@ -413,7 +416,7 @@ describe("flag.update", () => {
   it("enabled: false and rollout: 0 are applied (not treated as empty)", async () => {
     const flag = await seedFlag({ enabled: true, rollout: 50 });
 
-    const updated = await as(developer).flag.update({
+    const updated = await as(admin).flag.update({
       id: flag.id,
       enabled: false,
       rollout: 0,
@@ -425,7 +428,7 @@ describe("flag.update", () => {
   it("bumps updatedAt and keeps key, environment, projectId", async () => {
     const flag = await seedFlag({ key: "immutable", environment: "staging" });
 
-    const updated = await as(developer).flag.update({
+    const updated = await as(admin).flag.update({
       id: flag.id,
       enabled: true,
     });
@@ -440,20 +443,23 @@ describe("flag.update", () => {
     });
   });
 
-  it("allows developer, admin and owner roles", async () => {
+  it("allows admin and owner roles", async () => {
     const flag = await seedFlag();
 
-    for (const user of [developer, admin, owner]) {
+    for (const user of [admin, owner]) {
       const updated = await as(user).flag.update({ id: flag.id, rollout: 10 });
       expect(updated.rollout).toBe(10);
     }
   });
 
-  it("readonly cannot update flags (FORBIDDEN)", async () => {
+  it.each([
+    ["developer", () => developer],
+    ["readonly", () => readonly],
+  ])("%s cannot update flags (FORBIDDEN)", async (_role, getUser) => {
     const flag = await seedFlag({ rollout: 5 });
 
     await expect(
-      as(readonly).flag.update({ id: flag.id, rollout: 99 }),
+      as(getUser()).flag.update({ id: flag.id, rollout: 99 }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, flag.id));
@@ -470,7 +476,7 @@ describe("flag.update", () => {
 
   it("NOT_FOUND for a non-existent id", async () => {
     await expect(
-      as(developer).flag.update({ id: 999_999, rollout: 1 }),
+      as(admin).flag.update({ id: 999_999, rollout: 1 }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
@@ -482,7 +488,7 @@ describe("flag.update", () => {
     });
 
     await expect(
-      as(developer).flag.update({ id: foreign.id, rollout: 99 }),
+      as(admin).flag.update({ id: foreign.id, rollout: 99 }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, foreign.id));
@@ -493,7 +499,7 @@ describe("flag.update", () => {
     const flag = await seedFlag();
 
     await expect(
-      as(developer).flag.update({ id: flag.id }),
+      as(admin).flag.update({ id: flag.id }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
@@ -509,7 +515,7 @@ describe("flag.update", () => {
     const flag = await seedFlag();
 
     await expect(
-      as(developer).flag.update({ id: flag.id, ...input } as never),
+      as(admin).flag.update({ id: flag.id, ...input } as never),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });
@@ -518,7 +524,7 @@ describe("flag.toggle", () => {
   it("turns a disabled flag on", async () => {
     const flag = await seedFlag({ enabled: false });
 
-    const updated = await as(developer).flag.toggle({ id: flag.id });
+    const updated = await as(admin).flag.toggle({ id: flag.id });
 
     expect(updated.enabled).toBe(true);
   });
@@ -526,7 +532,7 @@ describe("flag.toggle", () => {
   it("turns an enabled flag off", async () => {
     const flag = await seedFlag({ enabled: true });
 
-    const updated = await as(developer).flag.toggle({ id: flag.id });
+    const updated = await as(admin).flag.toggle({ id: flag.id });
 
     expect(updated.enabled).toBe(false);
   });
@@ -534,8 +540,8 @@ describe("flag.toggle", () => {
   it("a double toggle restores the original state in the DB", async () => {
     const flag = await seedFlag({ enabled: false });
 
-    await as(developer).flag.toggle({ id: flag.id });
-    await as(developer).flag.toggle({ id: flag.id });
+    await as(admin).flag.toggle({ id: flag.id });
+    await as(admin).flag.toggle({ id: flag.id });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, flag.id));
     expect(row.enabled).toBe(false);
@@ -544,7 +550,7 @@ describe("flag.toggle", () => {
   it("keeps other fields and bumps updatedAt", async () => {
     const flag = await seedFlag({ rollout: 40, description: "desc" });
 
-    const updated = await as(developer).flag.toggle({ id: flag.id });
+    const updated = await as(admin).flag.toggle({ id: flag.id });
 
     expect(updated).toMatchObject({ rollout: 40, description: "desc" });
     expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
@@ -556,29 +562,32 @@ describe("flag.toggle", () => {
     const target = await seedFlag({ key: "target" });
     const other = await seedFlag({ key: "other" });
 
-    await as(developer).flag.toggle({ id: target.id });
+    await as(admin).flag.toggle({ id: target.id });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, other.id));
     expect(row.enabled).toBe(false);
   });
 
-  it("allows developer, admin and owner roles", async () => {
+  it("allows admin and owner roles", async () => {
     const flag = await seedFlag({ enabled: false });
 
-    for (const user of [developer, admin, owner]) {
+    for (const user of [admin, owner]) {
       await as(user).flag.toggle({ id: flag.id });
     }
 
-    // Three toggles -> enabled
+    // Two toggles -> back to disabled
     const [row] = await db.select().from(flags).where(eq(flags.id, flag.id));
-    expect(row.enabled).toBe(true);
+    expect(row.enabled).toBe(false);
   });
 
-  it("readonly cannot toggle flags (FORBIDDEN)", async () => {
+  it.each([
+    ["developer", () => developer],
+    ["readonly", () => readonly],
+  ])("%s cannot toggle flags (FORBIDDEN)", async (_role, getUser) => {
     const flag = await seedFlag({ enabled: false });
 
     await expect(
-      as(readonly).flag.toggle({ id: flag.id }),
+      as(getUser()).flag.toggle({ id: flag.id }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, flag.id));
@@ -595,7 +604,7 @@ describe("flag.toggle", () => {
 
   it("NOT_FOUND for a non-existent id", async () => {
     await expect(
-      as(developer).flag.toggle({ id: 999_999 }),
+      as(admin).flag.toggle({ id: 999_999 }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
@@ -606,7 +615,7 @@ describe("flag.toggle", () => {
     });
 
     await expect(
-      as(developer).flag.toggle({ id: foreign.id }),
+      as(admin).flag.toggle({ id: foreign.id }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, foreign.id));
@@ -626,7 +635,7 @@ describe("flag.toggle", () => {
 
   it.each([0, -1, 1.5])("rejects an invalid id: %s", async (badId) => {
     await expect(
-      as(developer).flag.toggle({ id: badId }),
+      as(admin).flag.toggle({ id: badId }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });

@@ -25,7 +25,7 @@ export const FlagList = () => {
 
   // UI hides buttons only for convenience. The real check is on the server (requireRole)
   const role = me.data?.role;
-  const canToggle = role !== undefined && role !== "readonly";
+  const canToggle = role === "admin" || role === "owner";
   const canDelete = role === "admin" || role === "owner";
   const error = toggle.error ?? remove.error;
 

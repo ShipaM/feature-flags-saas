@@ -32,7 +32,7 @@ export const flagRouter = createTRPCRouter({
   }),
 
   // Create a new feature flag
-  create: requireRole("developer")
+  create: requireRole("admin")
     .input(createFlagInput)
     .mutation(async ({ ctx, input }) => {
       // Prevent creating flags in another tenant's project
@@ -53,7 +53,7 @@ export const flagRouter = createTRPCRouter({
     }),
 
   // Update a feature flag
-  update: requireRole("developer")
+  update: requireRole("admin")
     .input(updateFlagInput)
     .mutation(async ({ ctx, input }) => {
       const { id: flagId, ...changes } = input;
@@ -69,7 +69,7 @@ export const flagRouter = createTRPCRouter({
     }),
 
   // Toggle a flag on or off
-  toggle: requireRole("developer")
+  toggle: requireRole("admin")
     .input(flagIdInput)
     .mutation(async ({ ctx, input }) => {
       const [updated] = await ctx.db
