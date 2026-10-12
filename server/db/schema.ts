@@ -26,11 +26,22 @@ export const environmentEnum = pgEnum("environment", [
   "prod",
 ]);
 
+// all timestamps are timestamptz
+const tz = (name: string) => timestamp(name, { withTimezone: true });
+
+// shared columns; functions so every table gets its own builder instance
+const createdAt = () => tz("created_at").defaultNow().notNull();
+const updatedAt = () =>
+  tz("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull();
+
 // organizations
 export const organizations = pgTable("organizations", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   name: varchar("name", { length: 255 }).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: createdAt(),
 });
 
 // users
@@ -48,11 +59,8 @@ export const users = pgTable(
     email: varchar("email", { length: 255 }).notNull().unique(),
     emailVerified: boolean("email_verified").notNull().default(false),
     image: text("image"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at")
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (table) => [index("users_organization_id_idx").on(table.organizationId)],
 );
@@ -64,14 +72,11 @@ export const sessions = pgTable("sessions", {
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
   token: text("token").notNull().unique(), // the value stored in the cookie
-  expiresAt: timestamp("expires_at").notNull(),
+  expiresAt: tz("expires_at").notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
 });
 
 // accounts: HOW the user logs in. Email+password -> providerId "credential", hash in `password`
@@ -87,14 +92,11 @@ export const accounts = pgTable("accounts", {
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   idToken: text("id_token"),
-  accessTokenExpiresAt: timestamp("access_token_expires_at"),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  accessTokenExpiresAt: tz("access_token_expires_at"),
+  refreshTokenExpiresAt: tz("refresh_token_expires_at"),
   scope: text("scope"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
 });
 
 // verifications: one-time tokens (email confirmation, password reset)
@@ -102,12 +104,9 @@ export const verifications = pgTable("verifications", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
+  expiresAt: tz("expires_at").notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
 });
 
 // projects
@@ -136,8 +135,8 @@ export const flags = pgTable(
     enabled: boolean("enabled").notNull().default(false),
     rollout: integer("rollout").notNull().default(0), //0-100%
     environment: environmentEnum("environment").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (table) => [
     uniqueIndex("flags_project_key_env_idx").on(
@@ -159,8 +158,8 @@ export const apiKeys = pgTable(
     environment: environmentEnum("environment").notNull(),
     hashedKey: varchar("hashed_key", { length: 255 }).notNull().unique(),
     type: varchar("type", { length: 255 }).notNull(), // "server" or "client"
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    revokedAt: timestamp("revoked_at"), //null if not revoked
+    createdAt: createdAt(),
+    revokedAt: tz("revoked_at"), //null if not revoked
   },
   (table) => [index("api_keys_project_id_idx").on(table.projectId)],
 );
@@ -180,7 +179,7 @@ export const auditLogs = pgTable(
     entity: varchar("entity", { length: 100 }).notNull(),
     before: jsonb("before"),
     after: jsonb("after"),
-    timestamp: timestamp("timestamp").defaultNow().notNull(),
+    timestamp: tz("timestamp").defaultNow().notNull(),
   },
   (table) => [index("audit_logs_organization_id_idx").on(table.organizationId)],
 );
