@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq, not } from "drizzle-orm";
+import { eq, not, sql } from "drizzle-orm";
 import { isUniqueViolation } from "@/server/db/errors";
 import { flags } from "@/server/db/schema";
 import {
@@ -59,7 +59,8 @@ export const flagRouter = createTRPCRouter({
       const { id: flagId, ...changes } = input;
       const [updated] = await ctx.db
         .update(flags)
-        .set({ ...changes, updatedAt: new Date() })
+        // Use the DB clock so updatedAt is comparable with DEFAULT now() values
+        .set({ ...changes, updatedAt: sql`now()` })
 
         // Check both flag ID and tenant ownership atomically
         .where(ctx.tenant.byProject(flags.projectId, eq(flags.id, flagId)))
@@ -76,7 +77,7 @@ export const flagRouter = createTRPCRouter({
         .update(flags)
         .set({
           enabled: not(flags.enabled),
-          updatedAt: new Date(),
+          updatedAt: sql`now()`,
         })
         // Check both flag ID and tenant ownership atomically
         .where(ctx.tenant.byProject(flags.projectId, eq(flags.id, input.id)))
