@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "./trpc";
 import { flagRouter } from "./routes/flag";
 import { projectRouter } from "./routes/project";
+import { apiKeyRouter } from "./routes/apiKey";
 
 export const appRouter = createTRPCRouter({
   // Health check: proves the whole chain works (client -> route handler -> context -> DB)
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   me: protectedProcedure.query(({ ctx }) => ctx.session.user),
   flag: flagRouter,
   project: projectRouter,
+  apiKeys: apiKeyRouter,
 });
 // Export ONLY the type. The client infers the whole API from it.
 export type AppRouter = typeof appRouter;

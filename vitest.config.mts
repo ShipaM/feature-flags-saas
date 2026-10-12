@@ -20,5 +20,3 @@ export default defineConfig({
     fileParallelism: false, // одна БД -> файлы по очереди
   },
 });
-// tests/server-only-stub.ts
-export {};

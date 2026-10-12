@@ -156,7 +156,9 @@ export const apiKeys = pgTable(
       .references(() => projects.id)
       .notNull(),
     environment: environmentEnum("environment").notNull(),
-    hashedKey: varchar("hashed_key", { length: 255 }).notNull().unique(),
+    name: varchar("name", { length: 100 }).notNull(), // human label: "CI server"
+    keyPrefix: varchar("key_prefix", { length: 32 }).notNull(), // "ffk_prod_a1B2" - safe to show
+    hashedKey: varchar("hashed_key", { length: 255 }).notNull().unique(), // SHA-256 hex
     type: varchar("type", { length: 255 }).notNull(), // "server" or "client"
     createdAt: createdAt(),
     revokedAt: tz("revoked_at"), //null if not revoked
