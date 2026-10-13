@@ -2,7 +2,15 @@ import "dotenv/config";
 import { hashPassword } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
 import { db } from "./client";
-import { accounts, flags, organizations, projects, users } from "./schema";
+import {
+  accounts,
+  apiKeys,
+  flags,
+  organizations,
+  projects,
+  users,
+} from "./schema";
+import { generateApiKey } from "@/lib/apiKey";
 
 // Development only: all seeded users use the same password
 const PASSWORD = "password123";
@@ -129,12 +137,33 @@ RESTART IDENTITY CASCADE`,
           environment: flags.environment,
         });
 
+      // One API key per environment. Only hashes are stored, so we print the
+      // plaintext keys now: this is the only moment anybody can see them.
+      const generatedKeys = ENVIRONMENTS.map((environment) => ({
+        environment,
+        ...generateApiKey(environment),
+      }));
+
+      await tx.insert(apiKeys).values(
+        generatedKeys.map((k) => ({
+          projectId: project.id,
+          environment: k.environment,
+          type: "server",
+          name: `Seed ${k.environment} key`,
+          keyPrefix: k.keyPrefix,
+          hashedKey: k.hashedKey,
+        })),
+      );
       // Keep created records for the final seed summary
       summary.push({
         org,
         project,
         users: createdUsers,
         flags: createdFlags,
+        apiKeys: generatedKeys.map((k) => ({
+          environment: k.environment,
+          key: k.plaintext, // development only!
+        })),
       });
     }
 
