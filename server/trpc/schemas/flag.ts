@@ -2,20 +2,23 @@ import { z } from "zod";
 import { environmentEnum } from "@/server/db/schema";
 import { id } from "./common";
 
-// Allowed environments: dev, staging, prod
+// Validates the allowed environments: dev, staging, and prod.
 export const environment = z.enum(environmentEnum.enumValues);
 
-// Allowed rollout values: 0-100
+// Validates rollout percentage (integer between 0 and 100).
 export const rollout = z.number().int().min(0).max(100);
 
+// Validates the feature flag key (lowercase letters, numbers, and hyphens only).
 export const flagKey = z
   .string()
   .min(1)
   .max(255)
   .regex(/^[a-z0-9-]+$/);
 
+// Validates the optional flag description (maximum 1000 characters).
 export const flagDescription = z.string().max(1000);
 
+// Validates optional filters for listing flags by project and environment.
 export const listFlagsInput = z
   .object({
     projectId: id.optional(),
@@ -23,6 +26,7 @@ export const listFlagsInput = z
   })
   .optional();
 
+// Validates the data required to create a feature flag.
 export const createFlagInput = z.object({
   projectId: id,
   key: flagKey,
@@ -32,6 +36,7 @@ export const createFlagInput = z.object({
   enabled: z.boolean().default(false),
 });
 
+// Validates feature flag updates and requires at least one field to be provided.
 export const updateFlagInput = z
   .object({
     id,
@@ -39,7 +44,7 @@ export const updateFlagInput = z
     enabled: z.boolean().optional(),
     rollout: rollout.optional(),
   })
-  // At least one field is required
+  // Ensures that at least one field is provided for the update.
   .refine(
     (v) =>
       v.description !== undefined ||
@@ -48,4 +53,5 @@ export const updateFlagInput = z
     { message: "At least one field is required" },
   );
 
+// Validates the input containing a feature flag ID.
 export const flagIdInput = z.object({ id });

@@ -2,12 +2,14 @@ import { createHash, randomBytes } from "node:crypto";
 import type { environmentEnum } from "@/server/db/schema";
 
 type Environment = (typeof environmentEnum.enumValues)[number];
-// Every key starts with this prefix, so humans and secret scanners can recognise it.
 
+// Every key starts with this prefix, so humans and secret scanners can recognise it.
 export const API_KEY_PREFIX = "ffk";
 
-// 32 random bytes = 256 bits of entropy. base64url turns them into 43 characters.
+// 32 random bytes = 256 bits of entropy.
 const SECRET_BYTES = 32;
+
+// 43 base64url characters = 32 bytes of entropy.
 const SECRET_LENGTH = 43;
 
 // "ffk_prod_" + 4 characters of the secret: enough to tell keys apart in a list.
