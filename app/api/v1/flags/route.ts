@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { etagFor, ifNoneMatchHas } from "@/lib/etag";
 import { authenticateApiKey } from "@/server/auth/apiKey";
+import { getCachedFlags, setCachedFlags } from "@/server/cache/flags";
 import { db } from "@/server/db";
 import { flags } from "@/server/db/schema";
 
@@ -26,28 +27,43 @@ function unauthorized() {
 export async function GET(request: Request) {
   try {
     const auth = await authenticateApiKey(request);
+
     if (!auth) return unauthorized();
-    const rows = await db
-      .select({
-        key: flags.key,
-        enabled: flags.enabled,
-        rollout: flags.rollout,
-      })
-      .from(flags)
-      .where(
-        // BOTH come from the key's row in the database, never from the request
-        and(
-          eq(flags.projectId, auth.projectId),
-          eq(flags.environment, auth.environment),
+
+    // 1. Try Redis first. null = miss.
+    let body = await getCachedFlags(auth.projectId, auth.environment);
+
+    if (body === null) {
+      // 2. Miss: read from Postgres exactly as before
+      const rows = await db
+        .select({
+          key: flags.key,
+          enabled: flags.enabled,
+          rollout: flags.rollout,
+        })
+        .from(flags)
+        .where(
+          // BOTH come from the key's row in the database, never from the request
+          and(
+            eq(flags.projectId, auth.projectId),
+            eq(flags.environment, auth.environment),
+          ),
+        )
+        .orderBy(flags.key); // stable order -> stable body -> stable ETag
+
+      body = JSON.stringify({
+        flags: Object.fromEntries(
+          rows.map((r) => [r.key, { enabled: r.enabled, rollout: r.rollout }]),
         ),
-      )
-      .orderBy(flags.key); // stable order -> stable body -> stable ETag
-    const body = JSON.stringify({
-      flags: Object.fromEntries(
-        rows.map((r) => [r.key, { enabled: r.enabled, rollout: r.rollout }]),
-      ),
-    });
+      });
+
+      // 3. Remember the answer for the next requests (TTL 60 s)
+      await setCachedFlags(auth.projectId, auth.environment, body);
+    }
+
+    // body is a string both after a hit and after a miss
     const etag = etagFor(body);
+
     const headers = {
       ETag: etag,
       "Cache-Control": CACHE_CONTROL,

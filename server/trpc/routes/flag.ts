@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { eq, not, sql } from "drizzle-orm";
+import { invalidateFlags } from "@/server/cache/flags";
 import { isUniqueViolation } from "@/server/db/errors";
 import { flags } from "@/server/db/schema";
 import {
@@ -40,6 +41,7 @@ export const flagRouter = createTRPCRouter({
 
       try {
         const [created] = await ctx.db.insert(flags).values(input).returning();
+        await invalidateFlags(created.projectId, created.environment);
         return created;
       } catch (e) {
         if (isUniqueViolation(e)) {
@@ -66,6 +68,7 @@ export const flagRouter = createTRPCRouter({
         .where(ctx.tenant.byProject(flags.projectId, eq(flags.id, flagId)))
         .returning();
       if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
+      await invalidateFlags(updated.projectId, updated.environment);
       return updated;
     }),
 
@@ -86,6 +89,7 @@ export const flagRouter = createTRPCRouter({
       // Hide both missing and unauthorized flags as NOT_FOUND
       if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
 
+      await invalidateFlags(updated.projectId, updated.environment);
       return updated;
     }),
 
@@ -97,11 +101,16 @@ export const flagRouter = createTRPCRouter({
         .delete(flags)
         // Delete only flags belonging to the current tenant
         .where(ctx.tenant.byProject(flags.projectId, eq(flags.id, input.id)))
-        .returning({ id: flags.id });
+        .returning({
+          id: flags.id,
+          projectId: flags.projectId,
+          environment: flags.environment,
+        });
 
       // Hide both missing and unauthorized flags as NOT_FOUND
       if (!deleted) throw new TRPCError({ code: "NOT_FOUND" });
 
-      return deleted;
+      await invalidateFlags(deleted.projectId, deleted.environment);
+      return { id: deleted.id };
     }),
 });

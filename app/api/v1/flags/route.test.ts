@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateApiKey } from "@/lib/apiKey";
+import { redis } from "@/server/cache/redis";
 import { db } from "@/server/db/client";
 import {
   apiKeys,
@@ -17,6 +18,8 @@ let projectA: number;
 let projectB: number;
 
 beforeAll(async () => {
+  // Stale cache from a previous run could answer for the same flags:1:prod key
+  await redis.flushdb(); // safe: tests use Redis database 1 only
   await db.execute(
     sql`TRUNCATE organizations, users, sessions, accounts,
 verifications, projects, flags, api_keys, audit_logs RESTART IDENTITY CASCADE`,
@@ -53,6 +56,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await db.$client.end();
+  await redis.quit(); // close the connection so the test process can exit
 });
 
 // Insert a key straight into the DB and return its plaintext
@@ -145,5 +149,26 @@ describe("GET /api/v1/flags", () => {
     const res = await call({ ...bearer(key), "if-none-match": etag });
 
     expect(res.status).toBe(401);
+  });
+
+  it("serves the second request from the cache", async () => {
+    const key = await seedKey(projectA, "prod");
+    const first = await (await call(bearer(key))).text();
+
+    // Change the DB behind the cache's back: the cached answer must stay the same
+    await db.update(flags).set({ enabled: true }).where(eq(flags.key, "alpha"));
+    const second = await (await call(bearer(key))).text();
+
+    expect(second).toBe(first);
+  });
+
+  it("still answers 200 when Redis is down", async () => {
+    const key = await seedKey(projectA, "prod");
+    const spy = vi.spyOn(redis, "get").mockRejectedValue(new Error("redis down"));
+
+    const res = await call(bearer(key));
+
+    expect(res.status).toBe(200);
+    spy.mockRestore();
   });
 });

@@ -6,6 +6,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   BETTER_AUTH_SECRET: z.string().min(32), // signs session
   BETTER_AUTH_URL: z.url(), // e.g. http://localhost:3000
+  REDIS_URL: z.string().min(1), // NEW: redis://:password@localhost:6379
 });
 
 const parsed = envSchema.safeParse(process.env);
