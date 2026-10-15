@@ -1,10 +1,8 @@
 import type { environmentEnum } from "@/server/db/schema";
+import { FLAGS_CACHE_TTL_SECONDS } from "@/server/constants/cache";
 import { redis } from "./redis";
 
 type Environment = (typeof environmentEnum.enumValues)[number]; // "dev" | "staging" | "prod"
-
-// How long a cached response may live. Safety net in case an invalidation is missed.
-export const FLAGS_CACHE_TTL_SECONDS = 60;
 
 // Spec: flags:{project_id}:{environment} -> e.g. "flags:1:prod"
 export const flagsCacheKey = (projectId: number, environment: Environment) =>

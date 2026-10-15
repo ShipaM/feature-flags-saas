@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure, publicProcedure } from "./trpc";
 import { flagRouter } from "./routes/flag";
 import { projectRouter } from "./routes/project";
 import { apiKeyRouter } from "./routes/apiKey";
+import { auditLogRouter } from "./routes/auditLog";
 
 export const appRouter = createTRPCRouter({
   // Health check: proves the whole chain works (client -> route handler -> context -> DB)
@@ -18,9 +19,11 @@ export const appRouter = createTRPCRouter({
 
   // Current user: { id, email, role, organizationId }. 401 if not logged in
   me: protectedProcedure.query(({ ctx }) => ctx.session.user),
+
   flag: flagRouter,
   project: projectRouter,
   apiKeys: apiKeyRouter,
+  auditLog: auditLogRouter,
 });
 // Export ONLY the type. The client infers the whole API from it.
 export type AppRouter = typeof appRouter;
