@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
@@ -31,3 +33,9 @@ export async function getSession(headers: Headers): Promise<Session | null> {
     .limit(1);
   return user ? { user } : null;
 }
+
+/**
+ * Session of the current request for Server Components / Server Actions.
+ * Wrapped in React cache(): layout, page and the tRPC caller share one DB lookup per request.
+ */
+export const getCurrentSession = cache(async () => getSession(await headers()));

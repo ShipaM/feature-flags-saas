@@ -4,7 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { TRPCReactProvider } from "@/lib/trpc/client";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { ModeToggle } from "@/components/ui/mode-toggle";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistHeading = Geist({ subsets: ["latin"], variable: "--font-heading" });
 
@@ -48,10 +48,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             enableSystem
             disableTransitionOnChange
           >
-            <div className="flex justify-end p-4">
-              <ModeToggle />
-            </div>
             {children}
+            <Toaster richColors closeButton />
           </ThemeProvider>
         </TRPCReactProvider>
       </body>
