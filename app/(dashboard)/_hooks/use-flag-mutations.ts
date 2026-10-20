@@ -7,11 +7,9 @@ export const useFlagMutations = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Return the promise so the mutation stays pending until fresh data arrives
   const refresh = () =>
     queryClient.invalidateQueries(trpc.flag.list.pathFilter());
 
-  // Shared callbacks: success toast + refetch, error toast with the server reason
   const feedback = (message: string) => ({
     onSuccess: () => {
       toast.success(message);
@@ -20,8 +18,6 @@ export const useFlagMutations = () => {
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
-  // Both go through flag.update with an explicit value, so a repeated or
-  // concurrent request is idempotent (unlike flag.toggle, which flips server state)
   const setEnabled = useMutation(
     trpc.flag.update.mutationOptions(feedback("Flag updated")),
   );

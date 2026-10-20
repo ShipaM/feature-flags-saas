@@ -1,4 +1,5 @@
 "use client";
+
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import { useState } from "react";
@@ -7,6 +8,8 @@ import { ENVIRONMENTS } from "@/shared/constants";
 import { usePermissions } from "@/shared/hooks";
 import { EnvTabs } from "./env-tabs";
 import { FlagTable } from "./flag-table";
+import { FlagDialog } from "./flag-dialog";
+import { Button } from "@/components/ui/button";
 
 export const FlagList = ({ projectId }: { projectId: number }) => {
   const trpc = useTRPC();
@@ -14,12 +17,11 @@ export const FlagList = ({ projectId }: { projectId: number }) => {
   const permissions = usePermissions();
   const { canEdit, isReadonly } = permissions;
 
-  // The server returns only prod for readonly - mirror that in the UI
   const environment: Environment = isReadonly ? "prod" : selectedEnv;
   const visibleEnvs: readonly Environment[] = isReadonly
     ? ["prod"]
     : ENVIRONMENTS;
-  // Wait for the role: otherwise a readonly user would first request "dev"
+
   const flagsQuery = useQuery({
     ...trpc.flag.list.queryOptions({ projectId, environment }),
     enabled: permissions.isReady,
@@ -30,6 +32,7 @@ export const FlagList = ({ projectId }: { projectId: number }) => {
       <p className="text-destructive">Error: {permissions.error.message}</p>
     );
   }
+
   if (!permissions.isReady) return <p>Loading flags…</p>;
 
   return (
@@ -42,6 +45,15 @@ export const FlagList = ({ projectId }: { projectId: number }) => {
       {flagsQuery.isPending && <p>Loading flags…</p>}
       {flagsQuery.isError && (
         <p className="text-destructive">Error: {flagsQuery.error.message}</p>
+      )}
+      {canEdit && (
+        <div className="flex justify-end">
+          <FlagDialog
+            projectId={projectId}
+            environment={environment}
+            trigger={<Button size="sm">New flag</Button>}
+          />
+        </div>
       )}
       {flagsQuery.isSuccess && (
         <FlagTable

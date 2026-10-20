@@ -14,8 +14,6 @@ export const RolloutSlider: FC<RolloutSliderProps> = ({
   disabled,
   onCommit,
 }) => {
-  // Local value only while dragging/saving; otherwise show the server value,
-  // so a failed update snaps the slider back
   const [draft, setDraft] = useState<number | null>(null);
   const value = draft ?? rollout;
 
@@ -29,8 +27,6 @@ export const RolloutSlider: FC<RolloutSliderProps> = ({
         disabled={disabled}
         onValueChange={([v]) => setDraft(v)}
         onValueCommit={([v]) => {
-          // The error is shown by the mutation's toast (<Toaster /> in the root layout);
-          // here we only need to drop the draft so the slider snaps back
           onCommit(v)
             .catch(() => {})
             .finally(() => setDraft(null));
