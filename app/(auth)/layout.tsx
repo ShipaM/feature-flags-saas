@@ -3,7 +3,6 @@ import { ModeToggle } from "@/components/ui/mode-toggle";
 export default function AuthLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="relative isolate flex min-h-svh flex-1 flex-col overflow-hidden bg-slate-50 dark:bg-[#07060f]">
-      {/* Gradient background: blurred floating blobs + grid + vignette */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-40 -left-32 size-[36rem] rounded-full bg-violet-400/50 blur-3xl motion-safe:animate-aurora dark:bg-violet-600/40" />
         <div className="absolute top-1/4 -right-40 size-[32rem] rounded-full bg-sky-300/50 blur-3xl [animation-delay:-6s] motion-safe:animate-aurora dark:bg-blue-600/35" />

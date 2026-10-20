@@ -11,12 +11,13 @@ export async function loginAction(
   formData: FormData,
 ): Promise<LoginState> {
   const email = formData.get("email")?.toString().trim().toLowerCase() ?? "";
-  const password = formData.get("password")?.toString() ?? ""; // пароль не обрезаем
+  const password = formData.get("password")?.toString() ?? "";
+
   if (!email || !password) {
     return { error: "Enter email and password", email };
   }
+
   try {
-    // Checks the password, creates a row in `sessions`, sets the cookie (via nextCookies plugin)
     await auth.api.signInEmail({
       body: { email, password },
       headers: await headers(),
@@ -33,5 +34,6 @@ export async function loginAction(
     }
     throw error;
   }
-  redirect("/"); // outside try/catch: redirect() works by throwing
+
+  redirect("/");
 }
