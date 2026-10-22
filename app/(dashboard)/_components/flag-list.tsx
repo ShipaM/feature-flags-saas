@@ -33,7 +33,11 @@ export const FlagList = ({ projectId }: { projectId: number }) => {
     );
   }
 
-  if (!permissions.isReady) return <p>Loading flags…</p>;
+  if (!permissions.isReady) {
+    return (
+      <FlagTable flags={undefined} environment={environment} canEdit={false} />
+    );
+  }
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -42,7 +46,6 @@ export const FlagList = ({ projectId }: { projectId: number }) => {
         envs={visibleEnvs}
         onChange={setSelectedEnv}
       />
-      {flagsQuery.isPending && <p>Loading flags…</p>}
       {flagsQuery.isError && (
         <p className="text-destructive">Error: {flagsQuery.error.message}</p>
       )}
@@ -55,7 +58,7 @@ export const FlagList = ({ projectId }: { projectId: number }) => {
           />
         </div>
       )}
-      {flagsQuery.isSuccess && (
+      {!flagsQuery.isError && (
         <FlagTable
           flags={flagsQuery.data}
           environment={environment}

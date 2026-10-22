@@ -11,9 +11,10 @@ import {
 import { FC } from "react";
 import type { Flag } from "../_types";
 import { FlagRow } from "./flag-row";
+import { TableSkeleton } from "./table-skeleton";
 
 type FlagTableProps = {
-  flags: Flag[];
+  flags: Flag[] | undefined; // undefined while the list is loading
   environment: Environment;
   canEdit: boolean;
 };
@@ -24,7 +25,7 @@ export const FlagTable: FC<FlagTableProps> = ({
   canEdit,
 }) => (
   <div className="overflow-hidden rounded-lg border">
-    <Table>
+    <Table aria-busy={!flags}>
       <TableHeader className="bg-muted/50">
         <TableRow className="hover:bg-transparent">
           <TableHead>Key</TableHead>
@@ -36,7 +37,8 @@ export const FlagTable: FC<FlagTableProps> = ({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {flags.length === 0 && (
+        {!flags && <TableSkeleton columns={canEdit ? 6 : 5} />}
+        {flags?.length === 0 && (
           <TableRow>
             <TableCell
               colSpan={canEdit ? 6 : 5}
@@ -46,7 +48,7 @@ export const FlagTable: FC<FlagTableProps> = ({
             </TableCell>
           </TableRow>
         )}
-        {flags.map((flag) => (
+        {flags?.map((flag) => (
           <FlagRow key={flag.id} flag={flag} canEdit={canEdit} />
         ))}
       </TableBody>

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import type { ApiKey } from "../_types";
 import { ConfirmButton } from "./confirm-button";
+import { TableSkeleton } from "./table-skeleton";
 
 type ApiKeysTableProps = {
   keys: ApiKey[] | undefined; // undefined while the list is loading
@@ -46,14 +47,15 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {(!keys || keys.length === 0) && (
+        {!keys && <TableSkeleton columns={6} />}
+        {keys?.length === 0 && (
           <TableRow>
             <TableCell
               colSpan={6}
               className="text-center text-muted-foreground"
             >
               <span role="status" aria-live="polite">
-                {keys ? "No API keys yet" : "Loading…"}
+                No API keys yet
               </span>
             </TableCell>
           </TableRow>
