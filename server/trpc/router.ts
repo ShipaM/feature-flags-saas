@@ -4,6 +4,8 @@ import { flagRouter } from "./routes/flag";
 import { projectRouter } from "./routes/project";
 import { apiKeyRouter } from "./routes/apiKey";
 import { auditLogRouter } from "./routes/auditLog";
+import { organizationRouter } from "./routes/organization";
+import { memberRouter } from "./routes/member";
 
 export const appRouter = createTRPCRouter({
   // Health check: proves the whole chain works (client -> route handler -> context -> DB)
@@ -24,6 +26,9 @@ export const appRouter = createTRPCRouter({
   project: projectRouter,
   apiKeys: apiKeyRouter,
   auditLog: auditLogRouter,
+  organization: organizationRouter,
+  member: memberRouter,
 });
+
 // Export ONLY the type. The client infers the whole API from it.
 export type AppRouter = typeof appRouter;

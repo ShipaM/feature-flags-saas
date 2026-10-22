@@ -4,6 +4,7 @@ export const AUDIT_ACTIONS = [
   "flag.update",
   "flag.toggle",
   "flag.delete",
+  "member.role_update", // new
 ] as const;
 
-export const AUDIT_ENTITIES = ["flag"] as const;
+export const AUDIT_ENTITIES = ["flag", "member"] as const; // "member" is new
