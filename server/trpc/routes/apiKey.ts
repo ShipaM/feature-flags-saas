@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq, sql } from "drizzle-orm";
 import { generateApiKey } from "@/lib/apiKey";
+import { invalidateApiKey } from "@/server/cache/apiKeys";
 import { apiKeys } from "@/server/db/schema";
 import {
   apiKeyIdInput,
@@ -90,7 +91,7 @@ export const apiKeyRouter = createTRPCRouter({
     // Executes the revocation logic asynchronously.
     .mutation(async ({ ctx, input }) => {
       // Updates the selected API key in the database.
-      const [revoked] = await ctx.db
+      const [row] = await ctx.db
         .update(apiKeys) // Specifies the table to update.
         .set({
           // Sets the revocation time to the current time only if it is not set.
@@ -105,12 +106,15 @@ export const apiKeyRouter = createTRPCRouter({
             eq(apiKeys.id, input.id), // Matches the requested API key ID.
           ),
         )
-        // Returns the updated record with only safe fields.
-        .returning(publicColumns);
+        // Returns the safe fields plus the hash, needed to drop the cache entry.
+        .returning({ ...publicColumns, hashedKey: apiKeys.hashedKey });
 
       // Returns NOT_FOUND if the key does not exist or belongs to another tenant.
       // This avoids revealing whether another tenant's key exists.
-      if (!revoked) throw new TRPCError({ code: "NOT_FOUND" });
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const { hashedKey, ...revoked } = row; // hashedKey must never leave the server
+      await invalidateApiKey(hashedKey);
 
       // Returns the updated API key information without exposing its secret.
       return revoked;
@@ -122,8 +126,8 @@ export const apiKeyRouter = createTRPCRouter({
     // Validates the ID of the key to rotate.
     .input(apiKeyIdInput)
     // Executes all database changes inside a single transaction.
-    .mutation(({ ctx, input }) =>
-      ctx.db.transaction(async (tx) => {
+    .mutation(async ({ ctx, input }) => {
+      const { oldHashedKey, ...result } = await ctx.db.transaction(async (tx) => {
         // Finds the requested key and locks its database row.
         // The lock prevents concurrent transactions from rotating the same key simultaneously.
         const [old] = await tx
@@ -182,7 +186,12 @@ export const apiKeyRouter = createTRPCRouter({
           ...created, // Includes the safe fields of the replacement key.
           key: plaintext, // Returns the new secret once so the client can save it.
           rotatedFromId: old.id, // Identifies the key that was rotated.
+          oldHashedKey: old.hashedKey, // internal: stripped before returning
         };
-      }),
-    ),
+      });
+
+      await invalidateApiKey(oldHashedKey); // after COMMIT, never inside the transaction
+
+      return result;
+    }),
 });

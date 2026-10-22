@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { generateApiKey } from "@/lib/apiKey";
+import { generateApiKey, hashApiKey } from "@/lib/apiKey";
+import { invalidateApiKey } from "@/server/cache/apiKeys";
 import { redis } from "@/server/cache/redis";
 import { db } from "@/server/db/client";
 import {
@@ -145,10 +146,23 @@ describe("GET /api/v1/flags", () => {
     const key = await seedKey(projectA, "prod");
     const etag = (await call(bearer(key))).headers.get("etag")!;
     await db.update(apiKeys).set({ revokedAt: new Date() }).where(eq(apiKeys.projectId, projectA));
+    await invalidateApiKey(hashApiKey(key)); // what the revoke procedure does
 
     const res = await call({ ...bearer(key), "if-none-match": etag });
 
     expect(res.status).toBe(401);
+  });
+
+  it("serves the api key from the cache until it is invalidated", async () => {
+    const key = await seedKey(projectA, "prod");
+    expect((await call(bearer(key))).status).toBe(200);
+
+    // Revoke behind the cache's back: the cached key still works
+    await db.update(apiKeys).set({ revokedAt: new Date() }).where(eq(apiKeys.projectId, projectA));
+    expect((await call(bearer(key))).status).toBe(200);
+
+    await invalidateApiKey(hashApiKey(key));
+    expect((await call(bearer(key))).status).toBe(401);
   });
 
   it("serves the second request from the cache", async () => {

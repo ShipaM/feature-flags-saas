@@ -35,8 +35,8 @@ export const useApiKeys = (projectId: number) => {
   const rotate = useMutation(trpc.apiKeys.rotate.mutationOptions(showSecret));
   const revoke = useMutation(
     trpc.apiKeys.revoke.mutationOptions({
-      onSuccess: () => {
-        toast.success("Key revoked");
+      onSuccess: (d) => {
+        toast.success(`Key "${d.name}" revoked`);
         return refresh();
       },
       onError: fail,
