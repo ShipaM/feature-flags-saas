@@ -18,3 +18,8 @@ export const ACTION_BADGE = {
   "member.role_update":
     "bg-violet-500/15 text-violet-700 dark:bg-violet-500/20 dark:text-violet-400",
 } as const satisfies Record<Action, string>;
+
+// Flags shown per page in the project flag table
+export const FLAGS_PAGE_SIZE = 10;
+// Upper bound for ?perPage, matches the max in the flag.list input schema
+export const FLAGS_MAX_PAGE_SIZE = 100;

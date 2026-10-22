@@ -80,7 +80,7 @@ afterAll(async () => {
 describe("cross-tenant access is impossible", () => {
   it("list: A видит только свои флаги", async () => {
     // User A should only see flags from tenant A
-    const list = await as(userA).flag.list();
+    const { items: list } = await as(userA).flag.list();
 
     expect(list.map((f) => f.id)).toEqual([flagA]);
   });

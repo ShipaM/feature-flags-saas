@@ -14,5 +14,6 @@ export * from "./members-table";
 export * from "./nav-links";
 export * from "./rollout-slider";
 export * from "./secret-key-dialog";
+export * from "./table-pagination";
 export * from "./table-skeleton";
 export * from "./user-menu";

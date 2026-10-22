@@ -18,11 +18,13 @@ export const flagKey = z
 // Validates the optional flag description (maximum 1000 characters).
 export const flagDescription = z.string().max(1000);
 
-// Validates optional filters for listing flags by project and environment.
+// Validates optional filters and page params for listing flags.
 export const listFlagsInput = z
   .object({
     projectId: id.optional(),
     environment: environment.optional(),
+    page: z.number().int().min(1).optional(), // 1-based, default 1
+    perPage: z.number().int().min(1).max(100).optional(), // default 10
   })
   .optional();
 

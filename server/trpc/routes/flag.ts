@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq, not, sql } from "drizzle-orm";
 import { invalidateFlags } from "@/server/cache/flags";
+import { FLAGS_DEFAULT_PER_PAGE } from "@/server/constants/pagination";
 import { isUniqueViolation } from "@/server/db/errors";
 import { flags } from "@/server/db/schema";
 import {
@@ -14,23 +15,32 @@ import { logAudit } from "@/server/audit/log";
 
 export const flagRouter = createTRPCRouter({
   // List flags visible to the current tenant
-  list: tenantProcedure.input(listFlagsInput).query(({ ctx, input }) => {
+  list: tenantProcedure.input(listFlagsInput).query(async ({ ctx, input }) => {
     const isReadonly = ctx.session.user.role === "readonly";
 
     // Readonly users can only see production flags
     const env = isReadonly ? "prod" : input?.environment;
+    const page = input?.page ?? 1;
+    const perPage = input?.perPage ?? FLAGS_DEFAULT_PER_PAGE;
 
-    return ctx.db
-      .select()
-      .from(flags)
-      .where(
-        ctx.tenant.byProject(
-          flags.projectId, // Restrict results to current tenant's projects
-          input?.projectId ? eq(flags.projectId, input.projectId) : undefined,
-          env ? eq(flags.environment, env) : undefined, // Filter by environment
-        ),
-      )
-      .orderBy(flags.id);
+    const where = ctx.tenant.byProject(
+      flags.projectId, // Restrict results to current tenant's projects
+      input?.projectId ? eq(flags.projectId, input.projectId) : undefined,
+      env ? eq(flags.environment, env) : undefined, // Filter by environment
+    );
+
+    const [items, total] = await Promise.all([
+      ctx.db
+        .select()
+        .from(flags)
+        .where(where)
+        .orderBy(flags.id)
+        .limit(perPage)
+        .offset((page - 1) * perPage),
+      ctx.db.$count(flags, where),
+    ]);
+
+    return { items, total, page, perPage };
   }),
 
   // Create a new feature flag

@@ -19,7 +19,7 @@ export type EditableFlag = {
   environment: Environment;
 };
 
-export type Flag = inferRouterOutputs<AppRouter>["flag"]["list"][number];
+export type Flag = inferRouterOutputs<AppRouter>["flag"]["list"]["items"][number];
 
 export type ApiKey = inferRouterOutputs<AppRouter>["apiKeys"]["list"][number];
 

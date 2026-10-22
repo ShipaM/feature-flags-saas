@@ -106,7 +106,7 @@ afterAll(async () => {
 
 describe("flag.list", () => {
   it("returns an empty array when there are no flags", async () => {
-    expect(await as(developer).flag.list()).toEqual([]);
+    expect((await as(developer).flag.list()).items).toEqual([]);
   });
 
   it("returns all organization flags ordered by id", async () => {
@@ -114,7 +114,7 @@ describe("flag.list", () => {
     const b = await seedFlag({ key: "b", environment: "prod" });
     const c = await seedFlag({ key: "c", projectId: otherProjectId });
 
-    const list = await as(developer).flag.list();
+    const { items: list } = await as(developer).flag.list();
 
     expect(list.map((f) => f.id)).toEqual([a.id, b.id, c.id]);
   });
@@ -123,7 +123,7 @@ describe("flag.list", () => {
     const mine = await seedFlag({ key: "mine" });
     await seedFlag({ key: "foreign", projectId: outsiderProjectId });
 
-    const list = await as(developer).flag.list();
+    const { items: list } = await as(developer).flag.list();
 
     expect(list.map((f) => f.id)).toEqual([mine.id]);
   });
@@ -132,7 +132,9 @@ describe("flag.list", () => {
     await seedFlag({ key: "p1" });
     const p2 = await seedFlag({ key: "p2", projectId: otherProjectId });
 
-    const list = await as(developer).flag.list({ projectId: otherProjectId });
+    const { items: list } = await as(developer).flag.list({
+      projectId: otherProjectId,
+    });
 
     expect(list.map((f) => f.id)).toEqual([p2.id]);
   });
@@ -141,7 +143,7 @@ describe("flag.list", () => {
     await seedFlag({ key: "mine" });
     await seedFlag({ key: "foreign", projectId: outsiderProjectId });
 
-    const list = await as(developer).flag.list({
+    const { items: list } = await as(developer).flag.list({
       projectId: outsiderProjectId,
     });
 
@@ -152,21 +154,27 @@ describe("flag.list", () => {
     await seedFlag({ key: "d", environment: "dev" });
     const s = await seedFlag({ key: "s", environment: "staging" });
 
-    const list = await as(developer).flag.list({ environment: "staging" });
+    const { items: list } = await as(developer).flag.list({
+      environment: "staging",
+    });
 
     expect(list.map((f) => f.id)).toEqual([s.id]);
   });
 
   it("combines projectId and environment filters", async () => {
     await seedFlag({ key: "a", environment: "dev" });
-    await seedFlag({ key: "b", environment: "prod", projectId: otherProjectId });
+    await seedFlag({
+      key: "b",
+      environment: "prod",
+      projectId: otherProjectId,
+    });
     const target = await seedFlag({
       key: "c",
       environment: "dev",
       projectId: otherProjectId,
     });
 
-    const list = await as(developer).flag.list({
+    const { items: list } = await as(developer).flag.list({
       projectId: otherProjectId,
       environment: "dev",
     });
@@ -179,7 +187,7 @@ describe("flag.list", () => {
     await seedFlag({ key: "s", environment: "staging" });
     const p = await seedFlag({ key: "p", environment: "prod" });
 
-    const list = await as(readonly).flag.list();
+    const { items: list } = await as(readonly).flag.list();
 
     expect(list.map((f) => f.id)).toEqual([p.id]);
   });
@@ -188,7 +196,9 @@ describe("flag.list", () => {
     await seedFlag({ key: "d", environment: "dev" });
     const p = await seedFlag({ key: "p", environment: "prod" });
 
-    const list = await as(readonly).flag.list({ environment: "dev" });
+    const { items: list } = await as(readonly).flag.list({
+      environment: "dev",
+    });
 
     expect(list.map((f) => f.id)).toEqual([p.id]);
   });
@@ -196,6 +206,43 @@ describe("flag.list", () => {
   it("rejects an invalid environment", async () => {
     await expect(
       as(developer).flag.list({ environment: "qa" as never }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("returns one page with the total count", async () => {
+    const seeded = [];
+    for (let i = 0; i < 5; i++) seeded.push(await seedFlag({ key: `f${i}` }));
+
+    const res = await as(developer).flag.list({ page: 2, perPage: 2 });
+
+    expect(res.items.map((f) => f.id)).toEqual([seeded[2].id, seeded[3].id]);
+    expect(res).toMatchObject({ total: 5, page: 2, perPage: 2 });
+  });
+
+  it("returns an empty page past the end", async () => {
+    await seedFlag({ key: "only" });
+
+    const res = await as(developer).flag.list({ page: 3, perPage: 10 });
+
+    expect(res.items).toEqual([]);
+    expect(res.total).toBe(1);
+  });
+
+  it("defaults to page 1 with 10 items", async () => {
+    for (let i = 0; i < 12; i++) await seedFlag({ key: `f${i}` });
+
+    const res = await as(developer).flag.list();
+
+    expect(res.items).toHaveLength(10);
+    expect(res).toMatchObject({ total: 12, page: 1, perPage: 10 });
+  });
+
+  it("rejects invalid page params", async () => {
+    await expect(as(developer).flag.list({ page: 0 })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
+    await expect(
+      as(developer).flag.list({ perPage: 101 }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
@@ -330,7 +377,11 @@ describe("flag.create", () => {
   });
 
   describe("input validation", () => {
-    const base = { projectId: 0, key: "valid-key", environment: "dev" } as const;
+    const base = {
+      projectId: 0,
+      key: "valid-key",
+      environment: "dev",
+    } as const;
     const call = (input: Record<string, unknown>) =>
       as(admin).flag.create({
         ...base,
@@ -347,7 +398,10 @@ describe("flag.create", () => {
       ["rollout < 0", { rollout: -1 }],
       ["rollout > 100", { rollout: 101 }],
       ["fractional rollout", { rollout: 10.5 }],
-      ["description longer than 1000 characters", { description: "d".repeat(1001) }],
+      [
+        "description longer than 1000 characters",
+        { description: "d".repeat(1001) },
+      ],
       ["invalid environment", { environment: "qa" }],
       ["projectId = 0", { projectId: 0 }],
       ["negative projectId", { projectId: -1 }],
@@ -498,16 +552,19 @@ describe("flag.update", () => {
   it("an empty update (id only) is rejected", async () => {
     const flag = await seedFlag();
 
-    await expect(
-      as(admin).flag.update({ id: flag.id }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(as(admin).flag.update({ id: flag.id })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 
   it.each([
     ["rollout < 0", { rollout: -1 }],
     ["rollout > 100", { rollout: 101 }],
     ["fractional rollout", { rollout: 1.5 }],
-    ["description longer than 1000 characters", { description: "d".repeat(1001) }],
+    [
+      "description longer than 1000 characters",
+      { description: "d".repeat(1001) },
+    ],
     ["non-boolean enabled", { enabled: "yes" }],
     ["id = 0", { id: 0, rollout: 1 }],
     ["negative id", { id: -1, rollout: 1 }],
@@ -597,15 +654,15 @@ describe("flag.toggle", () => {
   it("requires authentication", async () => {
     const flag = await seedFlag();
 
-    await expect(anonymous().flag.toggle({ id: flag.id })).rejects.toMatchObject(
-      { code: "UNAUTHORIZED" },
-    );
+    await expect(
+      anonymous().flag.toggle({ id: flag.id }),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("NOT_FOUND for a non-existent id", async () => {
-    await expect(
-      as(admin).flag.toggle({ id: 999_999 }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(as(admin).flag.toggle({ id: 999_999 })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 
   it("cannot toggle a foreign organization's flag (NOT_FOUND)", async () => {
@@ -634,9 +691,9 @@ describe("flag.toggle", () => {
   });
 
   it.each([0, -1, 1.5])("rejects an invalid id: %s", async (badId) => {
-    await expect(
-      as(admin).flag.toggle({ id: badId }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(as(admin).flag.toggle({ id: badId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 });
 
@@ -688,24 +745,24 @@ describe("flag.delete", () => {
   it("requires authentication", async () => {
     const flag = await seedFlag();
 
-    await expect(anonymous().flag.delete({ id: flag.id })).rejects.toMatchObject(
-      { code: "UNAUTHORIZED" },
-    );
+    await expect(
+      anonymous().flag.delete({ id: flag.id }),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("NOT_FOUND for a non-existent id", async () => {
-    await expect(
-      as(admin).flag.delete({ id: 999_999 }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(as(admin).flag.delete({ id: 999_999 })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 
   it("deleting twice gives NOT_FOUND", async () => {
     const flag = await seedFlag();
     await as(admin).flag.delete({ id: flag.id });
 
-    await expect(
-      as(admin).flag.delete({ id: flag.id }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(as(admin).flag.delete({ id: flag.id })).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 
   it("cannot delete a foreign organization's flag (NOT_FOUND)", async () => {
@@ -723,8 +780,8 @@ describe("flag.delete", () => {
   });
 
   it.each([0, -1, 1.5])("rejects an invalid id: %s", async (badId) => {
-    await expect(
-      as(admin).flag.delete({ id: badId }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(as(admin).flag.delete({ id: badId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    });
   });
 });
