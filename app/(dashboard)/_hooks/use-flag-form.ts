@@ -63,7 +63,9 @@ export const useFlagForm = ({
 
       await queryClient.invalidateQueries(trpc.flag.list.pathFilter());
 
-      toast.success(flag ? "Flag updated" : "Flag created");
+      toast.success(
+        flag ? `Flag "${flag.key}" updated` : `Flag "${v.key}" created`,
+      );
 
       onDone();
     } catch (e) {
