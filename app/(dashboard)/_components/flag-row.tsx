@@ -62,7 +62,7 @@ export const FlagRow: FC<FlagRowProps> = ({ flag, canEdit }) => {
         />
       </TableCell>
       <TableCell>
-        <Badge variant={ENV_BADGE[flag.environment]}>{flag.environment}</Badge>
+        <Badge className={ENV_BADGE[flag.environment]}>{flag.environment}</Badge>
       </TableCell>
       {canEdit && (
         <TableCell>

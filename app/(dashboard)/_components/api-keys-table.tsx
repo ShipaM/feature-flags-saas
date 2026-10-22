@@ -1,7 +1,7 @@
 "use client";
 import { format } from "date-fns";
 import { FC } from "react";
-import { ENV_BADGE } from "@/shared/constants";
+import { ENV_BADGE, KEY_STATUS_BADGE } from "@/shared/constants";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -66,7 +66,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               {k.name}
             </TableHead>
             <TableCell>
-              <Badge variant={ENV_BADGE[k.environment]}>{k.environment}</Badge>
+              <Badge className={ENV_BADGE[k.environment]}>{k.environment}</Badge>
             </TableCell>
             <TableCell>
               <code>
@@ -82,14 +82,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
             </TableCell>
             <TableCell>
               {k.revokedAt ? (
-                <Badge variant="outline">
+                <Badge className={KEY_STATUS_BADGE.revoked}>
                   Revoked{" "}
                   <time dateTime={new Date(k.revokedAt).toISOString()}>
                     {format(k.revokedAt, "dd.MM.yyyy")}
                   </time>
                 </Badge>
               ) : (
-                <Badge variant="secondary">Active</Badge>
+                <Badge className={KEY_STATUS_BADGE.active}>Active</Badge>
               )}
             </TableCell>
             <TableCell>
