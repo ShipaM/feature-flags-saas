@@ -16,7 +16,7 @@ export const createCallerFactory = t.createCallerFactory;
 /** Open to everyone, including anonymous users */
 export const publicProcedure = t.procedure;
 
-/** Requires a session. After the middleware, ctx.session.user is non-null */
+// Requires a session. After the middleware, ctx.session.user is non-null
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" }); // -> HTTP 401
@@ -28,7 +28,7 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   });
 });
 
-/** Session + ctx.tenant (tenant filters). Use it for EVERY procedure that touches org data */
+// Session + ctx.tenant (tenant filters). Use it for EVERY procedure that touches org data
 export const tenantProcedure = protectedProcedure.use(({ ctx, next }) =>
   next({ ctx: { tenant: withTenantScope(ctx) } }),
 );

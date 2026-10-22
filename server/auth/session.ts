@@ -6,21 +6,19 @@ import { db } from "@/server/db";
 import { users } from "@/server/db/schema";
 import { auth } from "./config";
 
-// Session user shape is derived from the Drizzle schema, so it stays in sync with the DB.
 export type SessionUser = Pick<
   typeof users.$inferSelect,
   "id" | "email" | "role" | "organizationId"
 >;
+
 export type Session = { user: SessionUser };
-/**
- * Returns the current user or null.
- * 1) Better Auth finds the session by the cookie (row in `sessions`) -> user id
- * 2) we load OUR fields (role, organizationId) from `users`
- */
 export async function getSession(headers: Headers): Promise<Session | null> {
   const authSession = await auth.api.getSession({ headers });
+
   const userId = Number(authSession?.user.id);
+
   if (!Number.isInteger(userId)) return null; // no cookie / expired / revoked session
+
   const [user] = await db
     .select({
       id: users.id,
@@ -34,8 +32,4 @@ export async function getSession(headers: Headers): Promise<Session | null> {
   return user ? { user } : null;
 }
 
-/**
- * Session of the current request for Server Components / Server Actions.
- * Wrapped in React cache(): layout, page and the tRPC caller share one DB lookup per request.
- */
 export const getCurrentSession = cache(async () => getSession(await headers()));

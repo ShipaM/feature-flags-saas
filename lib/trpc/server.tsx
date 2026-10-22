@@ -1,4 +1,5 @@
-import "server-only";
+import "server-only"; // Prevents this module from being imported into client-side code.
+
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { headers } from "next/headers";
 import { cache } from "react";
@@ -7,22 +8,24 @@ import { getCurrentSession } from "@/server/auth/session";
 import { appRouter } from "@/server/trpc/router";
 import { makeQueryClient } from "./query-client";
 
-// The same QueryClient within one request
+// Reuses the same QueryClient within one server request.
 export const getQueryClient = cache(makeQueryClient);
 
-// One context per request, reusing the cached session (headers() is async in Next.js 15+)
+// Creates one context per request and reuses the cached result.
 const createContext = cache(async () =>
   createTRPCContext({
-    headers: await headers(),
-    session: await getCurrentSession(),
+    headers: await headers(), // Passes the current request headers to the context.
+    session: await getCurrentSession(), // Passes the current user's session to the context.
   }),
 );
 
+// Creates a typed proxy for using tRPC procedures with TanStack Query.
 export const trpc = createTRPCOptionsProxy({
-  ctx: createContext,
-  router: appRouter,
-  queryClient: getQueryClient,
+  ctx: createContext, // Provides the context for server-side procedure calls.
+  router: appRouter, // Defines the available tRPC procedures.
+  queryClient: getQueryClient, // Provides the QueryClient for query operations.
 });
 
-// Direct server-side call (data does NOT go into the client cache)
+// Creates a caller for direct server-side procedure calls.
+// Calls procedures directly without automatically updating the TanStack Query cache.
 export const caller = appRouter.createCaller(createContext);
