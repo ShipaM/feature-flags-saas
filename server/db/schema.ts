@@ -183,5 +183,11 @@ export const auditLogs = pgTable(
     after: jsonb("after"),
     timestamp: tz("timestamp").defaultNow().notNull(),
   },
-  (table) => [index("audit_logs_organization_id_idx").on(table.organizationId)],
+  // (organization_id, id): newest-first pages, COUNT and MAX(id) per organization
+  (table) => [
+    index("audit_logs_organization_id_id_idx").on(
+      table.organizationId,
+      table.id,
+    ),
+  ],
 );
