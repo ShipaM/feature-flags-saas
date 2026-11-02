@@ -17,18 +17,18 @@ import { changedFields, show } from "../_utils";
 import { TableSkeleton } from "./table-skeleton";
 
 type AuditLogsTableProps = {
-  rows: AuditLog[];
-  loading: boolean;
-  loadingMore: boolean; // next page is being fetched
+  rows: AuditLog[] | undefined; // undefined while loading
+  busy?: boolean; // previous page still shown while the next one loads
+  skeletonRows: number; // matches perPage so the layout does not jump when data arrives
 };
 
 export const AuditLogsTable: FC<AuditLogsTableProps> = ({
   rows,
-  loading,
-  loadingMore,
+  busy = false,
+  skeletonRows,
 }) => (
-  <div className="overflow-hidden rounded-lg border">
-    <Table aria-busy={loading || loadingMore}>
+  <div className="overflow-hidden rounded-lg border [&_tr>*:first-child]:pl-4 [&_tr>*:last-child]:pr-4">
+    <Table aria-busy={!rows || busy}>
       <TableCaption className="sr-only">Audit log</TableCaption>
       <TableHeader className="bg-muted/50">
         <TableRow className="hover:bg-transparent">
@@ -40,24 +40,39 @@ export const AuditLogsTable: FC<AuditLogsTableProps> = ({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {loading && <TableSkeleton columns={5} />}
-        {!loading && rows.length === 0 && (
+        {!rows && <TableSkeleton columns={5} rows={skeletonRows} />}
+        {rows?.length === 0 && (
           <TableRow>
-            <TableCell colSpan={5} className="text-center text-muted-foreground">
+            <TableCell
+              colSpan={5}
+              className="text-center text-muted-foreground"
+            >
               <span role="status" aria-live="polite">
                 No entries yet
               </span>
             </TableCell>
           </TableRow>
         )}
-        {rows.map((r) => (
+        {rows?.map((r) => (
           <TableRow key={r.id}>
             <TableCell>
               <time dateTime={new Date(r.timestamp).toISOString()}>
                 {format(r.timestamp, "dd.MM.yyyy HH:mm:ss")}
               </time>
             </TableCell>
-            <TableCell>user #{r.actorId}</TableCell>
+            <TableCell>
+              {r.actorName ? (
+                <>
+                  <div>{r.actorName}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {r.actorEmail}
+                  </div>
+                </>
+              ) : (
+                `user #${r.actorId}` // fallback if the user no longer exists
+              )}
+            </TableCell>
+
             <TableCell>
               <Badge className={ACTION_BADGE[r.action as Action]}>
                 {r.action}
@@ -78,7 +93,6 @@ export const AuditLogsTable: FC<AuditLogsTableProps> = ({
             </TableCell>
           </TableRow>
         ))}
-        {loadingMore && <TableSkeleton columns={5} rows={3} />}
       </TableBody>
     </Table>
   </div>

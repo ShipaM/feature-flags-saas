@@ -17,14 +17,16 @@ type FlagTableProps = {
   flags: Flag[] | undefined; // undefined while the list is loading
   environment: Environment;
   canEdit: boolean;
+  skeletonRows: number; // matches perPage so the layout does not jump when data arrives
 };
 
 export const FlagTable: FC<FlagTableProps> = ({
   flags,
   environment,
   canEdit,
+  skeletonRows,
 }) => (
-  <div className="overflow-hidden rounded-lg border">
+  <div className="overflow-hidden rounded-lg border [&_tr>*:first-child]:pl-4 [&_tr>*:last-child]:pr-4">
     <Table aria-busy={!flags}>
       <TableHeader className="bg-muted/50">
         <TableRow className="hover:bg-transparent">
@@ -37,7 +39,9 @@ export const FlagTable: FC<FlagTableProps> = ({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {!flags && <TableSkeleton columns={canEdit ? 6 : 5} />}
+        {!flags && (
+          <TableSkeleton columns={canEdit ? 6 : 5} rows={skeletonRows} />
+        )}
         {flags?.length === 0 && (
           <TableRow>
             <TableCell

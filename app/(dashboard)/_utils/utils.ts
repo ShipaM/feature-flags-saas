@@ -14,3 +14,13 @@ export const changedFields = (before: Json, after: Json) => {
 };
 
 export const show = (v: unknown) => (v === undefined ? "—" : JSON.stringify(v));
+
+// ?perPage from the URL; bad values fall back to the list's default,
+// and the list's max is the one its server schema accepts
+export const parsePerPage = (
+  value: string | null,
+  { fallback, max }: { fallback: number; max: number },
+) => {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? Math.min(n, max) : fallback;
+};

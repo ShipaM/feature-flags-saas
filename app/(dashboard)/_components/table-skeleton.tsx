@@ -13,7 +13,7 @@ export const TableSkeleton: FC<TableSkeletonProps> = ({ columns, rows = 5 }) =>
     <TableRow key={i} aria-hidden="true" className="hover:bg-transparent">
       {Array.from({ length: columns }, (_, j) => (
         <TableCell key={j}>
-          <Skeleton className="h-4 w-full max-w-32" />
+          <Skeleton className="h-4 w-full" />
         </TableCell>
       ))}
     </TableRow>
@@ -21,7 +21,7 @@ export const TableSkeleton: FC<TableSkeletonProps> = ({ columns, rows = 5 }) =>
 
 // Whole table for route loading states, before the real table component is rendered
 export const TablePlaceholder: FC<TableSkeletonProps> = (props) => (
-  <div className="overflow-hidden rounded-lg border">
+  <div className="overflow-hidden rounded-lg border [&_tr>*:first-child]:pl-4 [&_tr>*:last-child]:pr-4">
     <Table aria-busy>
       <TableBody>
         <TableSkeleton {...props} />

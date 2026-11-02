@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/lib/trpc/client";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
@@ -12,7 +12,8 @@ import { FlagTable } from "./flag-table";
 import { FlagDialog } from "./flag-dialog";
 import { TablePagination } from "./table-pagination";
 import { Button } from "@/components/ui/button";
-import { FLAGS_MAX_PAGE_SIZE, FLAGS_PAGE_SIZE } from "../_constants";
+import { FLAGS_PER_PAGE } from "../_constants";
+import { parsePerPage } from "../_utils";
 import { Role } from "@/server/auth/roles";
 
 export const FlagList = ({
@@ -35,11 +36,7 @@ export const FlagList = ({
     : "dev";
   const pageParam = Number(searchParams.get("page"));
   const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
-  const perPageParam = Number(searchParams.get("perPage"));
-  const perPage =
-    Number.isInteger(perPageParam) && perPageParam > 0
-      ? Math.min(perPageParam, FLAGS_MAX_PAGE_SIZE) // server rejects > max
-      : FLAGS_PAGE_SIZE;
+  const perPage = parsePerPage(searchParams.get("perPage"), FLAGS_PER_PAGE);
 
   const buildUrl = (env: Environment, nextPage: number) => {
     const params = new URLSearchParams(searchParams);
@@ -66,32 +63,36 @@ export const FlagList = ({
       perPage,
     }),
     enabled: permissions.isReady,
-    placeholderData: keepPreviousData, // keep the old page visible while the next one loads
+    // Keep the old page visible only while paging: another environment's flags
+    // would pass for this one's, so an env switch shows the skeleton
+    placeholderData: (prev, prevQuery) => {
+      const prevInput = prevQuery?.queryKey[1]?.input as
+        { projectId?: number; environment?: Environment } | undefined;
+      return prevInput?.projectId === projectId &&
+        prevInput?.environment === environment
+        ? prev
+        : undefined;
+    },
   });
-
-  // Write resolved defaults into the URL (/projects/1 -> ?env=dev&page=1&perPage=10);
-  // waits for permissions since readonly users are forced to prod
-  const needsNormalize =
-    permissions.isReady &&
-    (envParam !== environment ||
-      searchParams.get("page") !== String(page) ||
-      searchParams.get("perPage") !== String(perPage));
-  useEffect(() => {
-    if (needsNormalize)
-      window.history.replaceState(null, "", buildUrl(environment, page));
-  }, [needsNormalize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = flagsQuery.data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / perPage));
 
-  // Page out of range (last page emptied by a delete, or a hand-edited URL):
-  // replace, not push, so Back does not return to the empty page
+  // Fix the URL in place (replace, not push, so Back does not return to a bad URL):
+  // write resolved defaults (/projects/1 -> ?env=dev&page=1&perPage=10) and move
+  // an out-of-range page (last page emptied by a delete, or a hand-edited URL)
+  // to the last one. Waits for permissions since readonly users are forced to prod.
+  // Depends on both URLs, so every bad URL is fixed, even one in a row after another
   const outOfRange =
     !!flagsQuery.data && !flagsQuery.isPlaceholderData && page > pageCount;
+  const targetUrl = permissions.isReady
+    ? buildUrl(environment, outOfRange ? pageCount : page)
+    : null;
+  const currentUrl = `${pathname}?${searchParams}`;
   useEffect(() => {
-    if (outOfRange)
-      window.history.replaceState(null, "", buildUrl(environment, pageCount));
-  }, [outOfRange]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (targetUrl && targetUrl !== currentUrl)
+      window.history.replaceState(null, "", targetUrl);
+  }, [targetUrl, currentUrl]);
 
   // History API instead of router: Next syncs useSearchParams without an RSC
   // round-trip, and the server page does not depend on these params
@@ -106,7 +107,12 @@ export const FlagList = ({
 
   if (!permissions.isReady) {
     return (
-      <FlagTable flags={undefined} environment={environment} canEdit={false} />
+      <FlagTable
+        flags={undefined}
+        environment={environment}
+        canEdit={false}
+        skeletonRows={perPage}
+      />
     );
   }
 
@@ -135,6 +141,7 @@ export const FlagList = ({
             flags={flagsQuery.data?.items}
             environment={environment}
             canEdit={canEdit}
+            skeletonRows={perPage}
           />
           <TablePagination
             page={page}

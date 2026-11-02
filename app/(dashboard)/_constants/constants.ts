@@ -1,3 +1,7 @@
+import {
+  AUDIT_LOG_DEFAULT_PER_PAGE,
+  AUDIT_LOG_MAX_PER_PAGE,
+} from "@/server/constants/pagination";
 import { Action, LinkType } from "../_types";
 
 export const LINKS = [
@@ -21,3 +25,13 @@ export const ACTION_BADGE = {
 
 export const FLAGS_PAGE_SIZE = 10;
 export const FLAGS_MAX_PAGE_SIZE = 100;
+
+// parsePerPage bounds of each paginated list
+export const FLAGS_PER_PAGE = {
+  fallback: FLAGS_PAGE_SIZE,
+  max: FLAGS_MAX_PAGE_SIZE,
+};
+export const AUDIT_LOG_PER_PAGE = {
+  fallback: AUDIT_LOG_DEFAULT_PER_PAGE,
+  max: AUDIT_LOG_MAX_PER_PAGE,
+};
