@@ -10,7 +10,7 @@ describe("fnv1a", () => {
   });
 });
 
-describe("isEnabledForUser: determinism", () => {
+describe("isEnabledForUser", () => {
   it("the same userKey+flagKey always gives the same result", () => {
     const first = isEnabledForUser("user-42", "new-checkout", 30);
     for (let i = 0; i < 1000; i++) {
@@ -26,9 +26,7 @@ describe("isEnabledForUser: determinism", () => {
       }
     }
   });
-});
 
-describe("isEnabledForUser: uniformity", () => {
   it("at rollout=30 the share of true is about 30% (±3 pp) over 10000 keys", () => {
     const total = 10000;
     let enabled = 0;
@@ -39,9 +37,7 @@ describe("isEnabledForUser: uniformity", () => {
     expect(share).toBeGreaterThan(27);
     expect(share).toBeLessThan(33);
   });
-});
 
-describe("isEnabledForUser: boundaries", () => {
   it("rollout=0 is always false", () => {
     for (let i = 0; i < 1000; i++) {
       expect(isEnabledForUser(`user-${i}`, "f", 0)).toBe(false);
