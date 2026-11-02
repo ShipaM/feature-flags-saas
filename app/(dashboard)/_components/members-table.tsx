@@ -44,7 +44,7 @@ export const MembersTable: FC = () => {
   const list = members.data;
 
   return (
-    <div className="overflow-hidden rounded-lg border">
+    <div className="overflow-hidden rounded-lg border [&_tr>*:first-child]:pl-4 [&_tr>*:last-child]:pr-4">
       <Table aria-busy={!list}>
         <TableCaption className="sr-only">Organization members</TableCaption>
         <TableHeader className="bg-muted/50">

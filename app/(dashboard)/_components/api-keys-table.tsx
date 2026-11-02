@@ -31,7 +31,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onRotate,
   onRevoke,
 }) => (
-  <div className="overflow-hidden rounded-lg border">
+  <div className="overflow-hidden rounded-lg border [&_tr>*:first-child]:pl-4 [&_tr>*:last-child]:pr-4">
     <Table aria-busy={!keys}>
       <TableCaption className="sr-only">API keys</TableCaption>
       <TableHeader className="bg-muted/50">
@@ -66,7 +66,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               {k.name}
             </TableHead>
             <TableCell>
-              <Badge className={ENV_BADGE[k.environment]}>{k.environment}</Badge>
+              <Badge className={ENV_BADGE[k.environment]}>
+                {k.environment}
+              </Badge>
             </TableCell>
             <TableCell>
               <code>

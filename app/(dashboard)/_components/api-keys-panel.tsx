@@ -11,6 +11,7 @@ import {
 import { useApiKeys } from "../_hooks";
 import { ApiKeysTable } from "./api-keys-table";
 import { SecretKeyDialog } from "./secret-key-dialog";
+import { ENVIRONMENTS } from "@/shared/constants";
 
 export const ApiKeysPanel: FC<{ projectId: number }> = ({ projectId }) => {
   const {
@@ -65,9 +66,11 @@ export const ApiKeysPanel: FC<{ projectId: number }> = ({ projectId }) => {
             <Field className="w-32">
               <FieldLabel htmlFor="key-env">Environment</FieldLabel>
               <NativeSelect {...field} id="key-env">
-                <NativeSelectOption value="dev">dev</NativeSelectOption>
-                <NativeSelectOption value="staging">staging</NativeSelectOption>
-                <NativeSelectOption value="prod">prod</NativeSelectOption>
+                {ENVIRONMENTS.map((env) => (
+                  <NativeSelectOption key={env} value={env}>
+                    {env}
+                  </NativeSelectOption>
+                ))}
               </NativeSelect>
             </Field>
           )}

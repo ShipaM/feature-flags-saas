@@ -21,6 +21,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ENVIRONMENTS } from "@/shared/constants";
 
 type FlagFormProps = {
   projectId: number;
@@ -79,11 +80,11 @@ export const FlagForm: FC<FlagFormProps> = (props) => {
               <Field>
                 <FieldLabel htmlFor="flag-env">Environment</FieldLabel>
                 <NativeSelect {...field} id="flag-env">
-                  <NativeSelectOption value="dev">dev</NativeSelectOption>
-                  <NativeSelectOption value="staging">
-                    staging
-                  </NativeSelectOption>
-                  <NativeSelectOption value="prod">prod</NativeSelectOption>
+                  {ENVIRONMENTS.map((env) => (
+                    <NativeSelectOption key={env} value={env}>
+                      {env}
+                    </NativeSelectOption>
+                  ))}
                 </NativeSelect>
               </Field>
             )}
