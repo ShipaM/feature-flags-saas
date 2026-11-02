@@ -20,6 +20,7 @@ export async function getCachedFlags(
     return null; // for the caller a failure looks exactly like a miss
   }
 }
+
 export async function setCachedFlags(
   projectId: number,
   environment: Environment,
@@ -32,6 +33,7 @@ export async function setCachedFlags(
     console.error("[cache] set failed (ignored):", error); // the response is still fine
   }
 }
+
 export async function invalidateFlags(
   projectId: number,
   environment: Environment,

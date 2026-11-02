@@ -13,8 +13,15 @@ import { FlagDialog } from "./flag-dialog";
 import { TablePagination } from "./table-pagination";
 import { Button } from "@/components/ui/button";
 import { FLAGS_MAX_PAGE_SIZE, FLAGS_PAGE_SIZE } from "../_constants";
+import { Role } from "@/server/auth/roles";
 
-export const FlagList = ({ projectId }: { projectId: number }) => {
+export const FlagList = ({
+  projectId,
+  initialRole,
+}: {
+  projectId: number;
+  initialRole?: Role;
+}) => {
   const trpc = useTRPC();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -42,7 +49,8 @@ export const FlagList = ({ projectId }: { projectId: number }) => {
     return `${pathname}?${params}`;
   };
 
-  const permissions = usePermissions();
+  const permissions = usePermissions(initialRole);
+
   const { canEdit, isReadonly } = permissions;
 
   const environment: Environment = isReadonly ? "prod" : selectedEnv;
