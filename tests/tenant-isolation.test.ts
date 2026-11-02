@@ -87,7 +87,9 @@ describe("cross-tenant access is impossible", () => {
 
   it("toggle: A не может переключить флаг B, подставив его id", async () => {
     // User A must not be able to modify tenant B's flag
-    await expect(as(userA).flag.toggle({ id: flagB })).rejects.toMatchObject({
+    await expect(
+      as(userA).flag.toggle({ id: flagB, enabled: true }),
+    ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
 
@@ -138,7 +140,7 @@ describe("cross-tenant access is impossible", () => {
 
   it("контроль: B может переключить свой флаг", async () => {
     // Control test: users can modify their own tenant's data
-    const updated = await as(userB).flag.toggle({ id: flagB });
+    const updated = await as(userB).flag.toggle({ id: flagB, enabled: true });
 
     expect(updated.enabled).toBe(true);
   });

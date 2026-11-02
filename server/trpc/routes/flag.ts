@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq, not, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { invalidateFlags } from "@/server/cache/flags";
 import { FLAGS_DEFAULT_PER_PAGE } from "@/server/constants/pagination";
 import { isUniqueViolation } from "@/server/db/errors";
@@ -7,6 +7,7 @@ import { flags } from "@/server/db/schema";
 import {
   createFlagInput,
   flagIdInput,
+  toggleFlagInput,
   listFlagsInput,
   updateFlagInput,
 } from "../schemas/flag";
@@ -113,11 +114,11 @@ export const flagRouter = createTRPCRouter({
       return updated;
     }),
 
-  // Toggle a flag on or off
+  // Turn a flag on or off (sets the given state, so a repeat is a no-op)
   toggle: requireRole("admin")
-    .input(flagIdInput)
+    .input(toggleFlagInput)
     .mutation(async ({ ctx, input }) => {
-      const updated = await ctx.db.transaction(async (tx) => {
+      const result = await ctx.db.transaction(async (tx) => {
         // Hide both missing and unauthorized flags as NOT_FOUND
         const [before] = await tx
           .select()
@@ -125,9 +126,12 @@ export const flagRouter = createTRPCRouter({
           .where(ctx.tenant.byProject(flags.projectId, eq(flags.id, input.id)))
           .for("update");
         if (!before) throw new TRPCError({ code: "NOT_FOUND" });
+        // Already in the requested state: no write, no audit entry
+        if (before.enabled === input.enabled)
+          return { flag: before, changed: false };
         const [after] = await tx
           .update(flags)
-          .set({ enabled: not(flags.enabled), updatedAt: sql`now()` })
+          .set({ enabled: input.enabled, updatedAt: sql`now()` })
           .where(eq(flags.id, input.id))
           .returning();
 
@@ -139,10 +143,11 @@ export const flagRouter = createTRPCRouter({
           before,
           after,
         });
-        return after;
+        return { flag: after, changed: true };
       });
-      await invalidateFlags(updated.projectId, updated.environment);
-      return updated;
+      if (result.changed)
+        await invalidateFlags(result.flag.projectId, result.flag.environment);
+      return result.flag;
     }),
 
   // Delete a flag (admin only)

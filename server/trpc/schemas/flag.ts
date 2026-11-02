@@ -57,3 +57,6 @@ export const updateFlagInput = z
 
 // Validates the input containing a feature flag ID.
 export const flagIdInput = z.object({ id });
+
+// The target state, not "flip": a stale UI must not invert what the user picked
+export const toggleFlagInput = z.object({ id, enabled: z.boolean() });

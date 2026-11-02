@@ -2,7 +2,13 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { SessionUser } from "@/server/auth/session";
 import { db } from "@/server/db/client";
-import { flags, organizations, projects, users } from "@/server/db/schema";
+import {
+  auditLogs,
+  flags,
+  organizations,
+  projects,
+  users,
+} from "@/server/db/schema";
 import { appRouter } from "@/server/trpc/router";
 import { createCallerFactory } from "@/server/trpc/trpc";
 
@@ -581,7 +587,7 @@ describe("flag.toggle", () => {
   it("turns a disabled flag on", async () => {
     const flag = await seedFlag({ enabled: false });
 
-    const updated = await as(admin).flag.toggle({ id: flag.id });
+    const updated = await as(admin).flag.toggle({ id: flag.id, enabled: true });
 
     expect(updated.enabled).toBe(true);
   });
@@ -589,25 +595,42 @@ describe("flag.toggle", () => {
   it("turns an enabled flag off", async () => {
     const flag = await seedFlag({ enabled: true });
 
-    const updated = await as(admin).flag.toggle({ id: flag.id });
+    const updated = await as(admin).flag.toggle({
+      id: flag.id,
+      enabled: false,
+    });
 
     expect(updated.enabled).toBe(false);
   });
 
-  it("a double toggle restores the original state in the DB", async () => {
+  it("is idempotent: a repeat keeps the requested state, no new audit entry", async () => {
     const flag = await seedFlag({ enabled: false });
 
-    await as(admin).flag.toggle({ id: flag.id });
-    await as(admin).flag.toggle({ id: flag.id });
+    await as(admin).flag.toggle({ id: flag.id, enabled: true });
+    const logsAfterFirst = await db.$count(auditLogs);
+    const second = await as(admin).flag.toggle({ id: flag.id, enabled: true });
+
+    expect(second.enabled).toBe(true);
+    const [row] = await db.select().from(flags).where(eq(flags.id, flag.id));
+    expect(row.enabled).toBe(true);
+    expect(await db.$count(auditLogs)).toBe(logsAfterFirst);
+  });
+
+  it("a stale UI cannot invert the state: it sets what the user picked", async () => {
+    const flag = await seedFlag({ enabled: false });
+
+    // Two admins both turn the flag on, each from a list that still shows "off"
+    await as(admin).flag.toggle({ id: flag.id, enabled: true });
+    await as(owner).flag.toggle({ id: flag.id, enabled: true });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, flag.id));
-    expect(row.enabled).toBe(false);
+    expect(row.enabled).toBe(true);
   });
 
   it("keeps other fields and bumps updatedAt", async () => {
     const flag = await seedFlag({ rollout: 40, description: "desc" });
 
-    const updated = await as(admin).flag.toggle({ id: flag.id });
+    const updated = await as(admin).flag.toggle({ id: flag.id, enabled: true });
 
     expect(updated).toMatchObject({ rollout: 40, description: "desc" });
     expect(updated.updatedAt.getTime()).toBeGreaterThanOrEqual(
@@ -619,7 +642,7 @@ describe("flag.toggle", () => {
     const target = await seedFlag({ key: "target" });
     const other = await seedFlag({ key: "other" });
 
-    await as(admin).flag.toggle({ id: target.id });
+    await as(admin).flag.toggle({ id: target.id, enabled: true });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, other.id));
     expect(row.enabled).toBe(false);
@@ -628,11 +651,9 @@ describe("flag.toggle", () => {
   it("allows admin and owner roles", async () => {
     const flag = await seedFlag({ enabled: false });
 
-    for (const user of [admin, owner]) {
-      await as(user).flag.toggle({ id: flag.id });
-    }
+    await as(admin).flag.toggle({ id: flag.id, enabled: true });
+    await as(owner).flag.toggle({ id: flag.id, enabled: false });
 
-    // Two toggles -> back to disabled
     const [row] = await db.select().from(flags).where(eq(flags.id, flag.id));
     expect(row.enabled).toBe(false);
   });
@@ -644,7 +665,7 @@ describe("flag.toggle", () => {
     const flag = await seedFlag({ enabled: false });
 
     await expect(
-      as(getUser()).flag.toggle({ id: flag.id }),
+      as(getUser()).flag.toggle({ id: flag.id, enabled: true }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, flag.id));
@@ -655,14 +676,14 @@ describe("flag.toggle", () => {
     const flag = await seedFlag();
 
     await expect(
-      anonymous().flag.toggle({ id: flag.id }),
+      anonymous().flag.toggle({ id: flag.id, enabled: true }),
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("NOT_FOUND for a non-existent id", async () => {
-    await expect(as(admin).flag.toggle({ id: 999_999 })).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
+    await expect(
+      as(admin).flag.toggle({ id: 999_999, enabled: true }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("cannot toggle a foreign organization's flag (NOT_FOUND)", async () => {
@@ -672,7 +693,7 @@ describe("flag.toggle", () => {
     });
 
     await expect(
-      as(admin).flag.toggle({ id: foreign.id }),
+      as(admin).flag.toggle({ id: foreign.id, enabled: true }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
 
     const [row] = await db.select().from(flags).where(eq(flags.id, foreign.id));
@@ -685,15 +706,26 @@ describe("flag.toggle", () => {
       projectId: outsiderProjectId,
     });
 
-    const updated = await as(outsider).flag.toggle({ id: foreign.id });
+    const updated = await as(outsider).flag.toggle({
+      id: foreign.id,
+      enabled: true,
+    });
 
     expect(updated.enabled).toBe(true);
   });
 
   it.each([0, -1, 1.5])("rejects an invalid id: %s", async (badId) => {
-    await expect(as(admin).flag.toggle({ id: badId })).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-    });
+    await expect(
+      as(admin).flag.toggle({ id: badId, enabled: true }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("rejects a missing enabled", async () => {
+    const flag = await seedFlag();
+
+    await expect(
+      as(admin).flag.toggle({ id: flag.id } as never),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });
 

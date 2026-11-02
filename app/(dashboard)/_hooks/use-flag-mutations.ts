@@ -19,7 +19,7 @@ export const useFlagMutations = () => {
   });
 
   const setEnabled = useMutation(
-    trpc.flag.update.mutationOptions(feedback("Flag updated")),
+    trpc.flag.toggle.mutationOptions(feedback("Flag updated")),
   );
 
   const setRollout = useMutation(
