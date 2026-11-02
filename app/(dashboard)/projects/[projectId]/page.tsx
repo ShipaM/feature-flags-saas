@@ -3,6 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { getCurrentSession } from "@/server/auth/session";
 import { caller } from "@/lib/trpc/server";
 import { FlagList } from "../../_components";
+import Link from "next/link";
+import { hasRole } from "@/server/auth/roles";
 
 export default async function ProjectFlagsPage(
   props: PageProps<"/projects/[projectId]">,
@@ -28,7 +30,18 @@ export default async function ProjectFlagsPage(
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-8">
-      <h1 className="text-2xl font-semibold">{project.name}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{project.name}</h1>
+        {/* The page itself needs "admin", so we hide the link from lower roles */}
+        {hasRole(session.user.role, "admin") && (
+          <Link
+            href={`/projects/${project.id}/api-keys`}
+            className="text-sm hover:underline"
+          >
+            API keys →
+          </Link>
+        )}
+      </div>
       <FlagList projectId={project.id} initialRole={session.user.role} />
     </main>
   );

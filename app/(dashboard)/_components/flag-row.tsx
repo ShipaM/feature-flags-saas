@@ -15,6 +15,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TableCell, TableRow } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { FC } from "react";
 import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { useFlagMutations } from "../_hooks";
@@ -30,8 +35,10 @@ export type FlagRowProps = {
 export const FlagRow: FC<FlagRowProps> = ({ flag, canEdit }) => {
   const { setEnabled, setRollout, remove } = useFlagMutations();
 
+  // While pending, show the value the user picked: the refetched flag can land
+  // in the cache before the mutation settles, and !flag.enabled would flip back
   const enabled = setEnabled.isPending
-    ? (setEnabled.variables.enabled ?? flag.enabled)
+    ? setEnabled.variables.enabled
     : flag.enabled;
 
   return (
@@ -43,14 +50,32 @@ export const FlagRow: FC<FlagRowProps> = ({ flag, canEdit }) => {
         {flag.description ?? "—"}
       </TableCell>
       <TableCell>
-        <Switch
-          checked={enabled}
-          disabled={!canEdit || setEnabled.isPending}
-          onCheckedChange={(checked) =>
-            setEnabled.mutate({ id: flag.id, enabled: checked })
-          }
-          aria-label={`Toggle ${flag.key}`}
-        />
+        {canEdit ? (
+          <Switch
+            checked={enabled}
+            disabled={setEnabled.isPending}
+            onCheckedChange={(checked) =>
+              setEnabled.mutate({ id: flag.id, enabled: checked })
+            }
+            aria-label={`Toggle ${flag.key}`}
+          />
+        ) : (
+          <Tooltip>
+            {/* Disabled buttons get no pointer events, so the wrapper is the trigger */}
+            <TooltipTrigger asChild>
+              <span tabIndex={0} className="inline-flex">
+                <Switch
+                  checked={enabled}
+                  disabled
+                  aria-label={`Toggle ${flag.key}`}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              Only admins and owners can toggle flags
+            </TooltipContent>
+          </Tooltip>
+        )}
       </TableCell>
       <TableCell>
         <RolloutSlider
@@ -62,7 +87,9 @@ export const FlagRow: FC<FlagRowProps> = ({ flag, canEdit }) => {
         />
       </TableCell>
       <TableCell>
-        <Badge className={ENV_BADGE[flag.environment]}>{flag.environment}</Badge>
+        <Badge className={ENV_BADGE[flag.environment]}>
+          {flag.environment}
+        </Badge>
       </TableCell>
       {canEdit && (
         <TableCell>
