@@ -12,6 +12,8 @@ const as = (user: SessionUser) =>
   createCaller({ db, session: { user }, headers: new Headers() });
 
 let admin: SessionUser;
+let developer: SessionUser;
+let readonly: SessionUser;
 let outsider: SessionUser; // admin of another organization
 let projectId: number;
 let outsiderProjectId: number; // project of another organization
@@ -37,10 +39,22 @@ verifications, projects, flags, api_keys, audit_logs RESTART IDENTITY CASCADE`,
   projectId = project.id;
   outsiderProjectId = foreignProject.id;
 
-  [admin, outsider] = await db
+  [admin, developer, readonly, outsider] = await db
     .insert(users)
     .values([
       { organizationId: org.id, name: "a", email: "a@t.test", role: "admin" },
+      {
+        organizationId: org.id,
+        name: "d",
+        email: "d@t.test",
+        role: "developer",
+      },
+      {
+        organizationId: org.id,
+        name: "r",
+        email: "r@t.test",
+        role: "readonly",
+      },
       {
         organizationId: otherOrg.id,
         name: "x",
@@ -162,4 +176,75 @@ describe("auditLog.list", () => {
     expect(theirs.items[0].actorId).toBe(outsider.id);
     expect(JSON.stringify(mine.items)).not.toContain("secret");
   });
+
+  describe("filters", () => {
+    beforeEach(async () => {
+      // 2 x flag.create + 1 x flag.toggle via the router
+      const flag = await as(admin).flag.create({
+        projectId,
+        key: "a",
+        environment: "dev",
+      });
+      await as(admin).flag.create({ projectId, key: "b", environment: "dev" });
+      await as(admin).flag.toggle({ id: flag.id, enabled: true });
+      // 1 x member.role_update written directly (admin cannot change roles)
+      await db.insert(auditLogs).values({
+        organizationId: admin.organizationId,
+        actorId: admin.id,
+        action: "member.role_update",
+        entity: "member",
+        before: { id: developer.id, role: "developer" },
+        after: { id: developer.id, role: "admin" },
+      });
+    });
+
+    it("by entity", async () => {
+      const list = await as(admin).auditLog.list({ entity: "member" });
+
+      expect(list.total).toBe(1);
+      expect(list.items.map((i) => i.action)).toEqual(["member.role_update"]);
+    });
+
+    it("by action", async () => {
+      const list = await as(admin).auditLog.list({ action: "flag.toggle" });
+
+      expect(list.total).toBe(1);
+      expect(list.items.map((i) => i.action)).toEqual(["flag.toggle"]);
+    });
+
+    it("by entity and action together", async () => {
+      const list = await as(admin).auditLog.list({
+        entity: "flag",
+        action: "flag.create",
+      });
+
+      expect(list.total).toBe(2);
+      expect(list.items.every((i) => i.action === "flag.create")).toBe(true);
+    });
+
+    it("a filter with no matches returns an empty page without an anchor", async () => {
+      const list = await as(admin).auditLog.list({ action: "flag.delete" });
+
+      expect(list).toMatchObject({ items: [], total: 0, anchor: null });
+    });
+
+    it("rejects values outside the allowed lists", async () => {
+      await expect(
+        as(admin).auditLog.list({ entity: "project" as never }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      await expect(
+        as(admin).auditLog.list({ action: "flag.hack" as never }),
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    });
+  });
+
+  it.each(["developer", "readonly"] as const)(
+    "%s gets FORBIDDEN (admin and owner only)",
+    async (role) => {
+      const user = { developer, readonly }[role];
+      await expect(as(user).auditLog.list()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+    },
+  );
 });
