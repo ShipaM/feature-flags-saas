@@ -2,8 +2,17 @@ import { and, eq } from "drizzle-orm";
 import { etagFor, ifNoneMatchHas } from "@/lib/etag";
 import { authenticateApiKey } from "@/server/auth/apiKey";
 import { getCachedFlags, setCachedFlags } from "@/server/cache/flags";
+import { checkRateLimit, type RateLimitResult } from "@/server/cache/rateLimit";
+import {
+  FAILED_AUTH_LIMIT,
+  FAILED_AUTH_WINDOW_SECONDS,
+  FLAGS_RATE_LIMIT,
+  FLAGS_RATE_WINDOW_SECONDS,
+} from "@/server/constants/rateLimit";
 import { db } from "@/server/db";
 import { flags } from "@/server/db/schema";
+import { logSecurityEvent } from "@/server/security/log";
+import { isDbUnavailable } from "@/server/db/errors";
 
 // The answer depends on the Authorization header, so it is `private` (browser/SDK cache only,
 // never a shared CDN). Fresh for 30s, then usable for 60s more while the client revalidates.
@@ -22,13 +31,51 @@ function unauthorized() {
   );
 }
 
+function tooManyRequests(r: RateLimitResult) {
+  return Response.json(
+    { error: "rate_limited" },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(r.retryAfterSeconds),
+        "X-RateLimit-Limit": String(r.limit),
+        "X-RateLimit-Remaining": "0",
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
+
 // GET /api/v1/flags: raw flag data for the project + environment bound to the API key.
 // It does NOT decide who gets a flag: that is the client SDK's job (see ADR-002).
 export async function GET(request: Request) {
   try {
     const auth = await authenticateApiKey(request);
 
-    if (!auth) return unauthorized();
+    if (!auth) {
+      // Failed auth: limit by IP to slow down key guessing
+      const ip =
+        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        "unknown";
+      const r = await checkRateLimit(
+        `ip:${ip}`,
+        FAILED_AUTH_LIMIT,
+        FAILED_AUTH_WINDOW_SECONDS,
+      );
+      logSecurityEvent("api_key_rejected", { ip });
+      return r.allowed ? unauthorized() : tooManyRequests(r);
+    }
+
+    // Right after successful auth, BEFORE reading cache/DB: limit per key
+    const rl = await checkRateLimit(
+      `key:${auth.keyId}`,
+      FLAGS_RATE_LIMIT,
+      FLAGS_RATE_WINDOW_SECONDS,
+    );
+    if (!rl.allowed) {
+      logSecurityEvent("rate_limited", { keyId: auth.keyId });
+      return tooManyRequests(rl);
+    }
 
     // 1. Try Redis first. null = miss.
     let body = await getCachedFlags(auth.projectId, auth.environment);
@@ -82,7 +129,19 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("GET /api/v1/flags failed:", error); // details stay in the server log
+    // БД недоступна: это не баг, а временный сбой -> 503 + «повторите через 5 с»
+    if (isDbUnavailable(error)) {
+      logSecurityEvent("db_unavailable", { route: "GET /api/v1/flags" });
+      return Response.json(
+        { error: "service_unavailable" },
+        {
+          status: 503,
+          headers: { "Retry-After": "5", "Cache-Control": "no-store" },
+        },
+      );
+    }
+    // Всё остальное — настоящий баг. Логируем только сообщение, не весь объект
+    console.error("GET /api/v1/flags failed:", (error as Error).message);
     return Response.json(
       { error: "internal_error" },
       { status: 500, headers: { "Cache-Control": "no-store" } },
