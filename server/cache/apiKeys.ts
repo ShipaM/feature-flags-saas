@@ -14,7 +14,10 @@ export async function getCachedApiKey(
     const raw = await redis.get(cacheKey(hash));
     return raw ? (JSON.parse(raw) as ApiKeyAuth) : null; // null = miss
   } catch (error) {
-    console.error("[cache] api key get failed, falling back to DB:", error);
+    console.error(
+      "[cache] api key get failed, falling back to DB:",
+      (error as Error).message,
+    );
     return null; // a failure looks exactly like a miss
   }
 }

@@ -16,7 +16,11 @@ export async function getCachedFlags(
   try {
     return await redis.get(flagsCacheKey(projectId, environment)); // "await" is REQUIRED here
   } catch (error) {
-    console.error("[cache] get failed, falling back to DB:", error);
+    console.error(
+      "[cache] get failed, falling back to DB:",
+      (error as Error).message,
+    );
+
     return null; // for the caller a failure looks exactly like a miss
   }
 }

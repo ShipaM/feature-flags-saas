@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import { env } from "../env"; // relative: seed.ts runs outside Next.js
+import { safeQueryLogger } from "./safeLogger";
 
 // This will hold our one connection to the database.
 let connection: Sql;
@@ -25,6 +26,6 @@ if (process.env.NODE_ENV === "production") {
 // This makes the "db" object. We use it to talk to the database in the app.
 export const db = drizzle({
   client: connection,
-  // Show SQL queries in the console, but only in development. Not in production.
-  logger: process.env.NODE_ENV !== "production",
+  // SQL text only (no parameter values), and only when DRIZZLE_LOG=1 is set on purpose.
+  logger: process.env.DRIZZLE_LOG === "1" ? safeQueryLogger() : false,
 });
