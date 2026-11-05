@@ -1,23 +1,47 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { hasRole, type Role } from "@/server/auth/roles";
+import { isDbUnavailable } from "@/server/db/errors";
 import type { Context } from "./context";
 import { withTenantScope } from "./tenant";
 
 // initTRPC is called ONCE per app. Export only the helpers, not the whole `t`.
 const t = initTRPC.context<Context>().create({
   transformer: superjson, // must match the transformer on the client (lib/trpc/client.tsx)
+  // In production unexpected errors reach the client without internal details
+  errorFormatter({ shape, error }) {
+    if (
+      error.code === "INTERNAL_SERVER_ERROR" &&
+      process.env.NODE_ENV === "production"
+    ) {
+      return { ...shape, message: "Internal error" };
+    }
+    return shape;
+  },
 });
 
 export const createTRPCRouter = t.router;
 
 export const createCallerFactory = t.createCallerFactory;
 
+// If the database is down inside a procedure, answer 503 with a human message
+const dbGuard = t.middleware(async ({ next }) => {
+  const result = await next();
+  if (!result.ok && isDbUnavailable(result.error.cause)) {
+    throw new TRPCError({
+      code: "SERVICE_UNAVAILABLE", // -> HTTP 503
+      message: "Service temporarily unavailable. Please try again in a moment.",
+      cause: result.error.cause, // the real driver error stays visible to server logs
+    });
+  }
+  return result;
+});
+
 /** Open to everyone, including anonymous users */
-export const publicProcedure = t.procedure;
+export const publicProcedure = t.procedure.use(dbGuard);
 
 // Requires a session. After the middleware, ctx.session.user is non-null
-export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
+export const protectedProcedure = publicProcedure.use(async ({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" }); // -> HTTP 401
   }
