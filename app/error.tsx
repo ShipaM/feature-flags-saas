@@ -23,7 +23,9 @@ export default function Error({
         The service is temporarily unavailable. Please try again in a moment.
       </p>
       {error.digest && (
-        <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p>
+        <p className="text-xs text-muted-foreground">
+          Error ID: {error.digest}
+        </p>
       )}
       <Button onClick={() => retry()}>Try again</Button>
     </main>
