@@ -62,8 +62,12 @@ export async function GET(request: Request) {
         FAILED_AUTH_LIMIT,
         FAILED_AUTH_WINDOW_SECONDS,
       );
+      if (!r.allowed) {
+        logSecurityEvent("rate_limited", { ip });
+        return tooManyRequests(r);
+      }
       logSecurityEvent("api_key_rejected", { ip });
-      return r.allowed ? unauthorized() : tooManyRequests(r);
+      return unauthorized();
     }
 
     // Right after successful auth, BEFORE reading cache/DB: limit per key
