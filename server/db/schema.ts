@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -143,6 +145,10 @@ export const flags = pgTable(
       table.projectId,
       table.key,
       table.environment,
+    ),
+    check(
+      "flags_rollout_range",
+      sql`${table.rollout} BETWEEN 0 AND 100`,
     ),
   ],
 );
