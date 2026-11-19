@@ -99,10 +99,12 @@ export const flagRouter = createTRPCRouter({
           .returning();
 
         // 3) Write the audit row in the same transaction
+        const rolloutChanged =
+          changes.rollout !== undefined && changes.rollout !== before.rollout;
         await logAudit({
           ctx,
           tx,
-          action: "flag.update",
+          action: rolloutChanged ? "flag.rollout_change" : "flag.update",
           entity: "flag",
           before,
           after,

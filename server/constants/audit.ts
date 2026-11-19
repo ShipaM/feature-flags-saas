@@ -2,6 +2,7 @@
 export const AUDIT_ACTIONS = [
   "flag.create",
   "flag.update",
+  "flag.rollout_change", // rollout percentage changed (spec: "Rollout changed")
   "flag.toggle",
   "flag.delete",
   "member.role_update", // new
