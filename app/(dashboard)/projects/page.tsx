@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/server/auth/session";
 import { caller } from "@/lib/trpc/server";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { hasRole } from "@/server/auth/roles";
+import { ProjectDialog } from "../_components";
 
 export default async function ProjectsPage() {
   const session = await getCurrentSession();
@@ -13,7 +15,10 @@ export default async function ProjectsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-8">
-      <h1 className="text-2xl font-semibold">Projects</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Projects</h1>
+        {hasRole(session.user.role, "admin") && <ProjectDialog />}
+      </div>
 
       {projects.length === 0 && (
         <p className="text-muted-foreground">No projects yet.</p>

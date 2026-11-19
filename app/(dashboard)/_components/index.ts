@@ -14,6 +14,7 @@ export * from "./flag-table";
 export * from "./flag-table-placeholder";
 export * from "./members-table";
 export * from "./nav-links";
+export * from "./project-dialog";
 export * from "./rollout-slider";
 export * from "./secret-key-dialog";
 export * from "./table-pagination";
