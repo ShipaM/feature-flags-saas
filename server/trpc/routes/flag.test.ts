@@ -399,7 +399,7 @@ describe("flag.create", () => {
       ["empty key", { key: "" }],
       ["key with uppercase letters", { key: "BadKey" }],
       ["key with a space", { key: "bad key" }],
-      ["key with an underscore", { key: "bad_key" }],
+      ["key with a dot", { key: "bad.key" }],
       ["key longer than 255 characters", { key: "a".repeat(256) }],
       ["rollout < 0", { rollout: -1 }],
       ["rollout > 100", { rollout: 101 }],
@@ -423,6 +423,12 @@ describe("flag.create", () => {
 
       expect(a.key).toHaveLength(255);
       expect(b.rollout).toBe(100);
+    });
+
+    it("accepts a key with an underscore (spec example new_checkout)", async () => {
+      const created = await call({ key: "new_checkout" });
+
+      expect(created.key).toBe("new_checkout");
     });
   });
 });

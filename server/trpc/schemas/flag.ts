@@ -13,7 +13,7 @@ export const flagKey = z
   .string()
   .min(1)
   .max(255)
-  .regex(/^[a-z0-9-]+$/);
+  .regex(/^[a-z0-9_-]+$/);
 
 // Validates the optional flag description (maximum 1000 characters).
 export const flagDescription = z.string().max(1000);
