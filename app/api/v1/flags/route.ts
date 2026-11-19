@@ -7,6 +7,7 @@ import {
   setCachedFlags,
 } from "@/server/cache/flags";
 import { checkRateLimit, type RateLimitResult } from "@/server/cache/rateLimit";
+import { countFlagRead } from "@/server/cache/usage";
 import {
   FAILED_AUTH_LIMIT,
   FAILED_AUTH_WINDOW_SECONDS,
@@ -139,6 +140,9 @@ export async function GET(request: Request) {
       Vary: "Authorization",
     };
     if (servedStale) headers["X-Cache"] = "stale";
+
+    // Billing counts flag reads: both 200 and 304, never 401
+    await countFlagRead(auth.projectId);
     // The client already has this exact version: send headers only (304, no body)
 
     if (ifNoneMatchHas(request.headers.get("if-none-match"), etag)) {
