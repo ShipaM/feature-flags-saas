@@ -13,7 +13,7 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   const nowSec = Math.floor(Date.now() / 1000);
   const windowId = Math.floor(nowSec / windowSeconds);
-  const key = `rl:${id}:${windowId}`; // новое окно = новый ключ
+  const key = `rl:${id}:${windowId}`; // new window = new key
   const retryAfterSeconds = windowSeconds - (nowSec % windowSeconds);
 
   try {

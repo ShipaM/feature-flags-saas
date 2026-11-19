@@ -10,10 +10,10 @@ vi.mock("@/server/constants/rateLimit", async (orig) => ({
   FLAGS_RATE_LIMIT: 3,
 }));
 
-import { GET } from "./route"; // импорт ПОСЛЕ vi.mock
+import { GET } from "./route"; // import AFTER vi.mock
 
 beforeEach(async () => {
-  await redis.flushdb(); // обнуляем счётчики (тесты используют отдельную базу Redis)
+  await redis.flushdb(); // reset counters (tests use a separate Redis DB)
   await db.execute(
     sql`TRUNCATE organizations, projects, api_keys RESTART IDENTITY CASCADE`,
   );
@@ -30,11 +30,14 @@ describe("rate limit", () => {
       .insert(organizations)
       .values({ name: "Org" })
       .returning();
+
     const [p] = await db
       .insert(projects)
       .values({ organizationId: org.id, name: "P" })
       .returning();
+
     const { plaintext, hashedKey, keyPrefix } = generateApiKey("prod");
+
     await db.insert(apiKeys).values({
       projectId: p.id,
       environment: "prod",
@@ -43,14 +46,18 @@ describe("rate limit", () => {
       keyPrefix,
       hashedKey,
     });
+
     const call = () =>
       GET(
         new Request("http://x/api/v1/flags", {
           headers: { authorization: `Bearer ${plaintext}` },
         }),
       );
+
     for (let i = 0; i < 3; i++) expect((await call()).status).toBe(200);
-    const blocked = await call(); // 4-й запрос
+
+    const blocked = await call(); // 4th request
+
     expect(blocked.status).toBe(429);
     expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
   });

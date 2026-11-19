@@ -4,7 +4,7 @@ export function isUniqueViolation(e: unknown): boolean {
   return err?.code === "23505" || err?.cause?.code === "23505";
 }
 
-// Коды ошибок «база недоступна»: сетевые и SQLSTATE Postgres
+// "Database unavailable" error codes: network errors and Postgres SQLSTATE
 const UNAVAILABLE_CODES = new Set([
   "ECONNREFUSED",
   "ECONNRESET",
@@ -14,11 +14,11 @@ const UNAVAILABLE_CODES = new Set([
   "CONNECTION_DESTROYED",
   "CONNECTION_ENDED",
   "57P01",
-  "57P03", // Postgres выключается / ещё запускается
-  "53300", // слишком много соединений
+  "57P03", // Postgres is shutting down / still starting up
+  "53300", // too many connections
 ]);
 
-// Drizzle прячет исходную ошибку в `cause`, поэтому идём по цепочке (до 4 уровней)
+// Drizzle hides the original error in `cause`, so walk the chain (up to 4 levels)
 export function isDbUnavailable(e: unknown): boolean {
   let cur = e as { code?: string; cause?: unknown } | null | undefined;
   for (let i = 0; i < 4 && cur; i++) {

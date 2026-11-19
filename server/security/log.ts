@@ -1,4 +1,5 @@
-type SecurityEvent = "api_key_rejected" | "rate_limited" | "db_unavailable";
+export type SecurityEvent =
+  "api_key_rejected" | "rate_limited" | "db_unavailable" | "served_stale";
 
 export function logSecurityEvent(
   event: SecurityEvent,

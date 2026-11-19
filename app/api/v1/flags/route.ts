@@ -1,7 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { etagFor, ifNoneMatchHas } from "@/lib/etag";
 import { authenticateApiKey } from "@/server/auth/apiKey";
-import { getCachedFlags, setCachedFlags } from "@/server/cache/flags";
+import {
+  getCachedFlags,
+  getStaleFlags,
+  setCachedFlags,
+} from "@/server/cache/flags";
 import { checkRateLimit, type RateLimitResult } from "@/server/cache/rateLimit";
 import {
   FAILED_AUTH_LIMIT,
@@ -83,43 +87,58 @@ export async function GET(request: Request) {
 
     // 1. Try Redis first. null = miss.
     let body = await getCachedFlags(auth.projectId, auth.environment);
+    let servedStale = false;
 
     if (body === null) {
-      // 2. Miss: read from Postgres exactly as before
-      const rows = await db
-        .select({
-          key: flags.key,
-          enabled: flags.enabled,
-          rollout: flags.rollout,
-        })
-        .from(flags)
-        .where(
-          // BOTH come from the key's row in the database, never from the request
-          and(
-            eq(flags.projectId, auth.projectId),
-            eq(flags.environment, auth.environment),
+      try {
+        // 2. Miss: read from Postgres exactly as before
+        const rows = await db
+          .select({
+            key: flags.key,
+            enabled: flags.enabled,
+            rollout: flags.rollout,
+          })
+          .from(flags)
+          .where(
+            // BOTH come from the key's row in the database, never from the request
+            and(
+              eq(flags.projectId, auth.projectId),
+              eq(flags.environment, auth.environment),
+            ),
+          )
+          .orderBy(flags.key); // stable order -> stable body -> stable ETag
+
+        body = JSON.stringify({
+          flags: Object.fromEntries(
+            rows.map((r) => [
+              r.key,
+              { enabled: r.enabled, rollout: r.rollout },
+            ]),
           ),
-        )
-        .orderBy(flags.key); // stable order -> stable body -> stable ETag
+        });
 
-      body = JSON.stringify({
-        flags: Object.fromEntries(
-          rows.map((r) => [r.key, { enabled: r.enabled, rollout: r.rollout }]),
-        ),
-      });
-
-      // 3. Remember the answer for the next requests (TTL 60 s)
-      await setCachedFlags(auth.projectId, auth.environment, body);
+        // 3. Remember the answer for the next requests (TTL 60 s)
+        await setCachedFlags(auth.projectId, auth.environment, body);
+      } catch (error) {
+        const stale = isDbUnavailable(error)
+          ? await getStaleFlags(auth.projectId, auth.environment)
+          : null;
+        if (stale === null) throw error;
+        body = stale;
+        servedStale = true;
+        logSecurityEvent("served_stale", { what: "flags" });
+      }
     }
 
     // body is a string both after a hit and after a miss
     const etag = etagFor(body);
 
-    const headers = {
+    const headers: Record<string, string> = {
       ETag: etag,
-      "Cache-Control": CACHE_CONTROL,
+      "Cache-Control": servedStale ? "no-store" : CACHE_CONTROL,
       Vary: "Authorization",
     };
+    if (servedStale) headers["X-Cache"] = "stale";
     // The client already has this exact version: send headers only (304, no body)
 
     if (ifNoneMatchHas(request.headers.get("if-none-match"), etag)) {
@@ -133,7 +152,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    // БД недоступна: это не баг, а временный сбой -> 503 + «повторите через 5 с»
+    // DB unavailable: not a bug but a temporary outage -> 503 + "retry in 5 s"
     if (isDbUnavailable(error)) {
       logSecurityEvent("db_unavailable", { route: "GET /api/v1/flags" });
       return Response.json(
@@ -144,7 +163,7 @@ export async function GET(request: Request) {
         },
       );
     }
-    // Всё остальное — настоящий баг. Логируем только сообщение, не весь объект
+    // Anything else is a real bug. Log only the message, not the whole object
     console.error("GET /api/v1/flags failed:", (error as Error).message);
     return Response.json(
       { error: "internal_error" },
