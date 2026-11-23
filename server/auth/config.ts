@@ -21,8 +21,9 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    // Nobody can register from outside: a user must belong to an organization.
-    // Users are created by seed now (later: invitations)
+    // Better Auth's own sign-up stays CLOSED on purpose: it can only create a bare user,
+    // and every user must belong to an organization. Registration goes through our own
+    // action app/(auth)/signup (creates organization + owner). Later: invitations.
     disableSignUp: true,
   },
   user: {
