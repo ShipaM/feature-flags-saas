@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   getStaleApiKey,
   invalidateApiKey,
@@ -16,6 +16,11 @@ import {
   FLAGS_CACHE_TTL_SECONDS,
   STALE_TTL_SECONDS,
 } from "@/server/constants/cache";
+
+beforeAll(async () => {
+  // enableOfflineQueue is false: wait until the connection is ready
+  while (redis.status !== "ready") await new Promise((r) => setTimeout(r, 20));
+});
 
 beforeEach(async () => {
   await redis.flushdb(); // tests use a separate Redis DB
