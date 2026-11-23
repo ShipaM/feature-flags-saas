@@ -13,7 +13,8 @@
     "db:seed": "tsx server/db/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:unit": "vitest run --config vitest.unit.config.mts"
+    "test:unit": "vitest run --config vitest.unit.config.mts",
+    "test:components": "vitest run --config vitest.components.config.mts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -54,13 +55,19 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.103.2",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
     "@types/node": "^22.20.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "axe-core": "^4.14.1",
     "dotenv": "^18.0.2",
     "drizzle-kit": "^1.0.0-rc.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5",

@@ -1,7 +1,7 @@
 // vitest.config.mts (.mts = ESM; with .ts Vite prints a warning)
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const env = config({ path: ".env.test" }).parsed ?? {};
 
@@ -17,6 +17,7 @@ export default defineConfig({
 
   test: {
     environment: "node",
+    exclude: [...configDefaults.exclude, "**/*.test.tsx"], // see vitest.components.config.mts
     env, // DATABASE_URL + BETTER_AUTH_* for server/env.ts
     globalSetup: ["./tests/global-setup.ts"],
     fileParallelism: false,
