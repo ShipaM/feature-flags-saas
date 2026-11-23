@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
-import { env } from "../env"; // relative: seed.ts runs outside Next.js
+import { env } from "../env"; // relative: used outside Next.js (tests, scripts)
 import { safeQueryLogger } from "./safeLogger";
 
 // This will hold our one connection to the database.
